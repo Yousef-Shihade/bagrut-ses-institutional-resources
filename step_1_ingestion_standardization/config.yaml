@@ -1,0 +1,92 @@
+# =============================================================================
+# BagrutProject — Central Configuration
+# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# Authors: Yousef Shehade & Shada Esawi
+#
+# This is a self-contained STEP folder. All paths are relative to this folder
+# (the one containing this config.yaml). Each code/ module resolves them against
+# that folder, so scripts can be run from anywhere. The shared raw datasets live
+# one level up at the project root, hence the "../datasets/..." prefix.
+# =============================================================================
+
+project:
+  title: "Predicting Israeli High School Bagrut Success Using Socioeconomic Data"
+  authors:
+    - "Yousef Shehade"
+    - "Shada Esawi"
+
+# Global random seed — reused everywhere (imputation, sampling, models) so every
+# stage of the pipeline is reproducible.
+seed: 42
+
+paths:
+  raw_bagrut: "../datasets/israel_bagrut_averages.csv"   # shared raw data at project root
+  raw_ses:    "../datasets/downloadFile.xlsx"            # shared raw data at project root
+  out_data:   "data"                                     # this step's interim CSVs
+  out_graphs: "graphs"                                   # this step's PNG plots
+
+# -----------------------------------------------------------------------------
+# Dataset 1 — Bagrut grades (israel_bagrut_averages.csv)
+# -----------------------------------------------------------------------------
+bagrut:
+  # The file carries a UTF-8 BOM. Reading it as plain "utf-8" leaves a stray
+  # ﻿ glued to the first header ("grade" -> "﻿grade"), silently
+  # breaking every column lookup. "utf-8-sig" strips the BOM correctly.
+  encoding: "utf-8-sig"
+  text_columns: ["subject", "city", "school"]   # padded with trailing spaces
+  city_column: "city"
+  grade_column: "grade"
+  takers_column: "takers"
+  studyunits_column: "studyunits"
+
+# -----------------------------------------------------------------------------
+# Dataset 2 — CBS socioeconomic index (downloadFile.xlsx, sheet "גיליון1")
+# -----------------------------------------------------------------------------
+ses:
+  sheet: "גיליון1"
+  # The first 10 physical rows (index 0-9) are blank/metadata. The real header
+  # is on row index 10; data begins at index 12 (row 11 is blank and is removed
+  # by the drop-empty-rows step).
+  header_row: 10
+  # Tokens used by CBS for unranked localities -> coerce to NaN.
+  na_tokens: ["..", ".", "-", "–"]
+  # Original Hebrew headers -> canonical English names used throughout the code.
+  rename:
+    "סמל היישוב":  "locality_code"
+    "שם יישוב":    "locality_name"
+    "צורת יישוב":  "locality_form"
+    "אוכלוסייה":   "population"
+    "ערך מדד":     "index_value"
+    "אשכול":       "cluster"            # matched by prefix (header has trailing "(מ-1 עד 10)")
+  numeric_columns: ["population", "index_value", "cluster"]
+  name_column: "locality_name"
+
+# -----------------------------------------------------------------------------
+# Subject definitions — used now for plots/labels and later for the
+# subject-specific school-level features (math_avg_grade, english_avg_grade,
+# math_5unit_participation, english_5unit_participation, ...).
+# -----------------------------------------------------------------------------
+subjects:
+  advanced_units: 5            # a "5-unit" exam == the advanced track
+  core:
+    math:    "מתמטיקה"
+    english: "אנגלית"
+
+# -----------------------------------------------------------------------------
+# Hebrew text-normalisation rules (applied in clean_text.py)
+# -----------------------------------------------------------------------------
+text_cleaning:
+  # Strip parenthetical qualifiers such as (יישוב) / (קבוצה) / (איחוד) / (מוסד)
+  # that appear on the locality side but not on the school side.
+  strip_parentheses: true
+  # Generic yod-doubling: the "קרית" prefix is officially "קריית".
+  yod_prefix_fixes:
+    "קרית": "קריית"
+  # Documented per-name spelling variants (Bagrut spelling -> CBS spelling).
+  # Applied as exact, whole-string replacements after generic normalisation.
+  spelling_map:
+    "הרצליה": "הרצלייה"
+    "נהריה": "נהרייה"
+    "דבוריה": "דבורייה"
+    "יהוד": "יהוד מונוסון"
+    "אפרתה": "אפרת"
