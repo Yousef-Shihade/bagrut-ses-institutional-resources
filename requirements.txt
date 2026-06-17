@@ -1,0 +1,39 @@
+# =============================================================================
+# BagrutProject — Python dependencies
+# Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# Authors: Yousef Shihade & Shada Essawi
+#
+# Pinned to the verified, stable execution stack used across Steps 1-5.
+# Tested on Anaconda Python 3.11 (Windows). Install with:
+#     pip install -r requirements.txt
+#
+# NOTE: the modeling champion is scikit-learn's HistGradientBoostingRegressor;
+# no external gradient-boosting library (e.g. xgboost/lightgbm) is used, so none
+# is listed here. Add one only if a future extension actually imports it.
+# =============================================================================
+
+# --- Core scientific stack (pinned: shap >=0.46 forces numpy>=2, which breaks
+#     the numpy-1.x-compiled pandas/sklearn in this environment) ---
+numpy==1.26.4
+pandas==2.1.4
+scipy==1.17.1
+
+# --- Machine learning & statistics ---
+scikit-learn==1.2.2        # models, GroupKFold, IterativeImputer (MICE), IsolationForest, LOF
+statsmodels==0.14.0        # variance_inflation_factor (collinearity / VIF)
+Boruta==0.4.3              # all-relevant feature selection (Step 5)
+shap==0.45.1               # model explainability / beeswarm plots (Step 5)
+joblib==1.2.0              # model serialization (.joblib)
+
+# --- Data I/O & text matching ---
+openpyxl==3.0.10           # read the CBS .xlsx socioeconomic index (Step 1)
+PyYAML==6.0.1              # per-step config.yaml loading
+chardet==4.0.0             # encoding detection for the raw Bagrut CSV (Step 1)
+rapidfuzz==3.14.5          # fuzzy Hebrew locality-name alignment (Step 2)
+
+# --- Visualization ---
+matplotlib==3.8.0
+seaborn==0.12.2
+
+# --- Transitive but pinned for reproducibility (shap runtime dependency) ---
+numba==0.61.2
