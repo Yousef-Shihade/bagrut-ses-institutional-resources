@@ -1,0 +1,46 @@
+# =============================================================================
+# BagrutProject — .gitignore
+# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# Authors: Yousef Shehade & Shada Esawi
+#
+# Goal: a lean, reproducible repository. Raw source data and course material are
+# excluded (kept on local disk only); the modular step pipelines regenerate every
+# intermediate artifact. External data links are documented in the step READMEs.
+# =============================================================================
+
+# ── Raw source datasets (NOT redistributed — see step_1 / step_2 READMEs) ──────
+datasets/
+israel_bagrut_averages.csv
+downloadFile.xlsx
+# Any raw spreadsheet dropped directly in the repo root
+/*.csv
+/*.xlsx
+/*.xls
+
+# ── Large regenerable intermediate caches (rebuilt by running the step scripts) ─
+# Small aggregated summaries (ses_clean, city_mapping_log, school_level_*) ARE
+# tracked; these two full-size tables (~7 MB / ~10 MB) are regenerated on demand.
+step_1_ingestion_standardization/data/bagrut_clean.csv
+step_2_data_merging_integration/data/merged_bagrut_ses.csv
+
+# ── Course material (presentations & lecturer guidelines) ──────────────────────
+*.pptx
+*.docx
+*.doc
+PRESENTATIONS/
+guidelines/
+
+# ── Python housekeeping ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ── OS / editor cruft ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
