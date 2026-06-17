@@ -1,0 +1,76 @@
+# =============================================================================
+# BagrutProject — Step 4 Configuration
+# Preprocessing, Outlier Detection & the MICE Imputation Experiment
+# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# Authors: Yousef Shehade & Shada Esawi
+#
+# Self-contained STEP folder. Paths are relative to THIS folder; each code/
+# module resolves them from its own location, so scripts run from any CWD.
+# Step 4 consumes Step 3's school-level table and produces a modeling-ready cache.
+# =============================================================================
+
+project:
+  title: "Predicting Israeli High School Bagrut Success Using Socioeconomic Data"
+  authors:
+    - "Yousef Shehade"
+    - "Shada Esawi"
+
+seed: 42
+
+paths:
+  school_level_in: "../step_3_feature_engineering_target_setup/data/school_level_features_targets.csv"
+  out_data:        "data"
+  out_graphs:      "graphs"
+  cleaned_out:     "data/cleaned_modeling_ready.csv"
+
+io:
+  encoding: "utf-8-sig"
+
+# Target columns engineered in Step 3 (never imputed — small-cohort suppression).
+targets:
+  - "math_avg_grade"
+  - "english_avg_grade"
+  - "math_5unit_participation"
+  - "english_5unit_participation"
+
+# --- Task A: MICE imputation experiment -------------------------------------
+imputation_experiment:
+  # A fully-populated continuous feature to mask & reconstruct. index_value (the
+  # CBS continuous socioeconomic score) is 100% complete on cluster-present rows
+  # and strongly structured, so it cleanly contrasts MICE vs a median baseline.
+  target_feature: "index_value"
+  mask_fraction: 0.08          # within the required 5-10% band
+  mice_max_iter: 15
+  # Numeric predictors the IterativeImputer (MICE) may use to reconstruct values.
+  predictors:
+    - "cluster"
+    - "index_value"
+    - "population"
+    - "math_avg_grade"
+    - "english_avg_grade"
+    - "math_5unit_participation"
+    - "english_5unit_participation"
+    - "math_takers_total"
+    - "english_takers_total"
+
+# --- Task B: Outlier detection ----------------------------------------------
+outliers:
+  contamination: 0.05          # expected anomaly fraction for both detectors
+  lof_neighbors: 20
+  # Feature space for anomaly detection (standardised inside the code).
+  features:
+    - "combined_avg_grade"
+    - "math_5unit_participation"
+    - "english_5unit_participation"
+    - "cluster"
+    - "index_value"
+    - "log_population"
+    - "log_total_takers"
+
+# --- Task C: exploratory questions ------------------------------------------
+exploratory:
+  resilience_low_cluster: 2    # Q1: gap is measured between cluster 2 ...
+  resilience_high_cluster: 9   #      ... and cluster 9
+  overachiever_low_clusters: [1, 2, 3, 4]    # Q2: low-SES band
+  overachiever_elite_clusters: [8, 9, 10]    # Q2: elite benchmark band
+  overachiever_benchmark: "median"           # match/exceed elite median combined grade
