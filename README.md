@@ -8,7 +8,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Python](https://img.shields.io/badge/Python-3.11-blue.svg)
 ![scikit--learn](https://img.shields.io/badge/scikit--learn-1.2.2-orange.svg)
-![Pipeline](https://img.shields.io/badge/pipeline-5%20stages-success.svg)
+![Pipeline](https://img.shields.io/badge/pipeline-6%20stages-success.svg)
 ![Status](https://img.shields.io/badge/status-complete-brightgreen.svg)
 
 **Authors:** Yousef Shihade & Shada Essawi · *Data Science Lab — Final Project*
@@ -29,12 +29,12 @@ We model four school-level targets: **average Bagrut grade** and **5-unit
 
 ## 🏗 Pipeline Architecture
 
-The project is organised as **five isolated, self-contained, sequential stages**.
+The project is organised as **six isolated, self-contained, sequential stages**.
 Each folder owns its own `README.md`, `config.yaml`, `code/`, data, and graphs,
 and consumes the previous stage's output.
 
 ```
-            datasets/  (raw CBS .xlsx + Bagrut .csv — git-ignored)
+       datasets/  (raw Bagrut .csv + CBS .xlsx + Ministry budget .xlsx — git-ignored)
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -65,6 +65,12 @@ and consumes the previous stage's output.
 │ STEP 5 · ML Tournament & Explainability                              │
 │   GroupKFold(semel) · VIF · Boruta · Ridge/SGD/RF/HGB · SHAP          │
 └─────────────────────────────────────────────────────────────────────┘
+                 │   2-dataset leaderboard (SES only)
+                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 6 · Institutional Budget Integration & Performance Boost        │
+│   3rd dataset · semel join · dual budget/student · re-run · +0.132 R² │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Repository layout
@@ -77,7 +83,8 @@ BagrutProject/
 ├── step_2_data_merging_integration/
 ├── step_3_feature_engineering_target_setup/
 ├── step_4_preprocessing_outliers_imputation_experiment/
-└── step_5_predictive_modeling_explainability/
+├── step_5_predictive_modeling_explainability/
+└── step_6_budget_integration_performance_boost/
 ```
 
 ---
@@ -121,6 +128,34 @@ HistGradientBoosting**, which won every target.
 
 ---
 
+## 🚀 Breaking the Ceiling — Step 6 Budget Integration
+
+The Step-5 leaderboard above is the answer to *"SES alone."* **Step 6 then adds a
+third dataset** — a Ministry of Education **school-budget report** — joined strictly
+on the school code `semel`, and engineers **two complementary per-student spend
+ratios** (comprehensive grand-total + targeted instructional teaching cost; the
+empty *Gefen* column is dropped). Re-running the **identical** tuned-HGB tournament
+on the same budget-matched rows isolates the budget's marginal effect:
+
+| 🎯 Target | Step 5 — SES only | **Step 6 — SES + dual budget** | **ΔR²** |
+|---|--:|--:|--:|
+| `english_5unit_participation` | 0.192 | **0.391** | **+0.199** |
+| `math_5unit_participation` | 0.056 | **0.211** | **+0.155** |
+| `math_avg_grade` | 0.094 | **0.208** | **+0.114** |
+| `english_avg_grade` | 0.150 | **0.220** | **+0.070** |
+
+> 📈 **Mean R² gain ≈ +0.13**, with `math_5unit_participation` *quadrupling*. Budget
+> per student is **near-orthogonal to the SES cluster (r ≈ 0.03)** — genuinely new
+> information — and in SHAP it **outranks `cluster`** for the most resilient targets.
+> This supplies the **mechanism** behind the resilience finding: advanced-track
+> capacity is governed by **school-level resourcing, not town wealth** — *policy
+> overrides postcode*. Full detail in
+> [`step_6_budget_integration_performance_boost/`](step_6_budget_integration_performance_boost/README.md).
+
+![Step 6 before/after R²](step_6_budget_integration_performance_boost/graphs/model_performance/before_after_r2_comparison.png)
+
+---
+
 ## 📈 Core Analytical Deliverables
 
 **MICE vs Median imputation health** — MICE tracks the true density; the median
@@ -161,6 +196,13 @@ In short: **SES predicts *who selects English* far better than *who selects
 Math*, and selection better than raw grades** — and that resilience of the Math
 pipeline is the project's central, reproducible finding.
 
+**Step 6 closes the loop:** adding a third dataset of **institutional budget per
+student** lifts mean R² by **≈ +0.13** and, in SHAP, *outranks* municipal SES for
+the most resilient targets. The variance that town wealth cannot explain is not
+noise — it is **school-level resourcing**. The Math pipeline isn't resilient to
+*money*; it is resilient to *municipal* money, because its advanced track is driven
+by each school's own budget. **Policy and resourcing override postcode.**
+
 ---
 
 ## ⚙️ Reproducing the Pipeline
@@ -169,7 +211,7 @@ pipeline is the project's central, reproducible finding.
 # 1. Environment (Anaconda Python 3.11 recommended)
 pip install -r requirements.txt
 
-# 2. Place the two raw files in datasets/ (see data sources below)
+# 2. Place the three raw files in datasets/ (see data sources below)
 
 # 3. Run each stage in order (each is CWD-independent and self-verifying)
 python step_1_ingestion_standardization/code/run_step1.py
@@ -177,6 +219,7 @@ python step_2_data_merging_integration/code/run_step2.py
 python step_3_feature_engineering_target_setup/code/run_step3.py
 python step_4_preprocessing_outliers_imputation_experiment/code/run_step4.py
 python step_5_predictive_modeling_explainability/code/run_step5.py
+python step_6_budget_integration_performance_boost/code/run_step6.py
 ```
 
 ### 📦 Data sources (raw files are git-ignored, not redistributed)
@@ -185,6 +228,9 @@ python step_5_predictive_modeling_explainability/code/run_step5.py
   Kaggle: <https://www.kaggle.com/datasets/emachlev/bagrut-israel/data>
 - **Dataset 2 — CBS Socioeconomic Index**: Israel Central Bureau of Statistics,
   <https://www.cbs.gov.il/>
+- **Dataset 3 — Ministry of Education School-Budget Report** (per-institution
+  budget & enrolment; used in Step 6): Israel Ministry of Education info-center,
+  <https://infocenter.education.gov.il/all/sense/app/4f021b9e-f3c8-48f0-b349-a29eb97833a9/sheet/013b1d75-d09a-4ad3-9c4e-84085c3cca63/state/analysis>
 
 ---
 
@@ -198,6 +244,7 @@ python step_5_predictive_modeling_explainability/code/run_step5.py
 | Feature selection | **Boruta** | Step 5 |
 | Explainability | **SHAP** | Step 5 |
 | Collinearity | **VIF** | Step 5 |
+| Multi-source integration | **3rd-dataset `semel` join + dual feature engineering** | Step 6 |
 
 ---
 
