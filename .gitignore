@@ -24,11 +24,10 @@ downloadFile.xlsx
 step_1_ingestion_standardization/data/bagrut_clean.csv
 step_2_data_merging_integration/data/merged_three_datasets.csv
 
-# Same two caches, preserved under their v1 (pre-rebuild) paths in archive/ —
-# archive/ is kept as a reference/audit trail, not to bloat the repo with data
-# that was never tracked even when these were the live pipeline steps.
-archive/v1_two_dataset_pipeline/step_1_ingestion_standardization/data/bagrut_clean.csv
-archive/v1_two_dataset_pipeline/step_2_data_merging_integration/data/merged_bagrut_ses.csv
+# ── Superseded v1 pipeline ────────────────────────────────────────────────────
+# The original two-dataset pipeline lives on the `archive/v1-two-dataset-pipeline`
+# git branch, not on `main` — excluded here so it never gets re-added locally.
+archive/
 
 # ── Course material (presentations & lecturer guidelines) ──────────────────────
 *.pptx

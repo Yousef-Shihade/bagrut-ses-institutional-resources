@@ -30,14 +30,6 @@
 We model four school-level targets: **average Bagrut grade** and **5-unit
 (advanced-track) participation rate**, each for **Mathematics** and **English**.
 
-> **Note on project history:** an earlier version of this pipeline answered a
-> narrower question — *"can municipal SES **alone** predict Bagrut success?"*
-> — using only the Bagrut and CBS datasets, with the budget dataset added as a
-> final extension. Following methodological feedback, the project was rebuilt
-> so all **three** datasets are integrated **from Step 1**. That original
-> pipeline and its results are preserved for reference in
-> [`archive/v1_two_dataset_pipeline/`](archive/v1_two_dataset_pipeline/README.md).
-
 ---
 
 ## 🏗 Pipeline Architecture
@@ -90,7 +82,6 @@ and graphs, and consumes the previous stage's output.
 BagrutProject/
 ├── README.md  ·  LICENSE  ·  requirements.txt
 ├── datasets/                                  # raw inputs (git-ignored)
-├── archive/v1_two_dataset_pipeline/           # superseded v1 pipeline (reference)
 ├── step_1_ingestion_standardization/
 ├── step_2_data_merging_integration/
 ├── step_3_feature_engineering_target_setup/
