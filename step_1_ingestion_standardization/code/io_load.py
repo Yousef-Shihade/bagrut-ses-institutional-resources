@@ -1,33 +1,41 @@
 """
-io_load.py — Resilient data ingestion for Step 1.
+io_load.py — Resilient ingestion of the THREE raw datasets (v2 Step 1).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
 Responsibilities
 ----------------
-* Locate the project root and load the central ``config.yaml``.
-* Read Dataset 1 (Bagrut grades) handling its UTF-8 *BOM* so the first column
-  header is not corrupted.
-* Read Dataset 2 (CBS socioeconomic index) from an Excel sheet whose real header
-  sits on row index 10, dropping the leading metadata/blank rows, renaming the
-  Hebrew headers to canonical English names, and coercing the ``..`` "unranked"
-  placeholders to ``NaN``.
+* Dataset 1 — Bagrut grades CSV: handle the UTF-8 *BOM* so the first header is
+  not corrupted ("grade" -> "﻿grade").
+* Dataset 2 — CBS socioeconomic index XLSX: the real header sits on row index 10;
+  Hebrew headers are renamed to canonical English names and the ``..`` "unranked"
+  placeholders are coerced to NaN.
+* Dataset 3 — Ministry of Education budget XLSX (**new in v2**): the workbook
+  ships a malformed ``styles.xml`` (non-aRGB theme colours) which makes a vanilla
+  ``openpyxl.load_workbook`` raise ``ValueError: Colors must be aRGB hex values``.
+  We monkeypatch openpyxl's ``RGB`` descriptor with a lenient validator *before*
+  opening the file, then drop the grand-totals row and whitespace-normalise the
+  Hebrew headers.
 
-These functions return raw (un-cleaned) DataFrames. Text normalisation lives in
-``clean_text.py`` so that ingestion and cleaning stay independently testable.
+These functions return raw (un-cleaned) DataFrames; text standardisation lives in
+``clean_text.py`` so ingestion and cleaning stay independently testable.
 """
 from __future__ import annotations
 
+import re
+import warnings
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import yaml
 
-# Step root = the directory that contains config.yaml (one level above code/).
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "config.yaml"
+
+_WS_RE = re.compile(r"\s+")
 
 
 def load_config(path: Path | str = CONFIG_PATH) -> dict[str, Any]:
@@ -37,46 +45,43 @@ def load_config(path: Path | str = CONFIG_PATH) -> dict[str, Any]:
 
 
 def resolve(rel_path: str) -> Path:
-    """Resolve a config-relative path against the project root."""
+    """Resolve a config-relative path against this step folder."""
     return (ROOT / rel_path).resolve()
 
 
+def _norm_header(value: Any) -> Any:
+    """Collapse internal whitespace + trim (Hebrew headers carry double spaces)."""
+    if value is None:
+        return value
+    return _WS_RE.sub(" ", str(value)).strip()
+
+
 # --------------------------------------------------------------------------- #
-# Dataset 1 — Bagrut grades
+# Dataset 1 — Bagrut grades                                                    #
 # --------------------------------------------------------------------------- #
 def load_bagrut(cfg: dict[str, Any] | None = None) -> pd.DataFrame:
-    """Load ``israel_bagrut_averages.csv``.
-
-    The file is encoded as UTF-8 *with BOM*. We read it with ``utf-8-sig`` and
-    additionally guard against a stray BOM on the first header, so downstream
-    code can rely on a clean ``grade`` column name.
-    """
+    """Load ``israel_bagrut_averages.csv`` (UTF-8 *with BOM*)."""
     cfg = cfg or load_config()
-    path = resolve(cfg["paths"]["raw_bagrut"])
-    encoding = cfg["bagrut"]["encoding"]
-
-    df = pd.read_csv(path, encoding=encoding)
-
-    # Belt-and-braces: drop any residual BOM and surrounding whitespace from the
-    # column labels themselves.
+    df = pd.read_csv(resolve(cfg["paths"]["raw_bagrut"]),
+                     encoding=cfg["bagrut"]["encoding"])
+    # Belt-and-braces: drop any residual BOM/whitespace from the labels.
     df.columns = [str(c).replace("﻿", "").strip() for c in df.columns]
     return df
 
 
 # --------------------------------------------------------------------------- #
-# Dataset 2 — CBS socioeconomic index
+# Dataset 2 — CBS socioeconomic index                                          #
 # --------------------------------------------------------------------------- #
-def _resolve_rename_map(raw_columns: list[str], rename_cfg: dict[str, str]) -> dict[str, str]:
-    """Build a {raw_header -> canonical_name} map.
+def _resolve_rename_prefix(raw_columns: list[str], rename_cfg: dict[str, str]) -> dict[str, str]:
+    """{raw_header -> canonical} using PREFIX matching.
 
-    Header labels in the workbook carry trailing spaces and, for the cluster
-    column, an extra suffix ("אשכול    (מ-1 עד 10)"). We strip whitespace and
-    match each configured Hebrew key by prefix so small formatting differences
-    in the source file do not break ingestion.
+    The CBS cluster header carries a trailing qualifier
+    ("אשכול    (מ-1 עד 10)"), so prefix matching keeps ingestion robust to small
+    formatting drift in the source workbook.
     """
     mapping: dict[str, str] = {}
     for raw in raw_columns:
-        key = str(raw).strip()
+        key = _norm_header(raw)
         for heb, canon in rename_cfg.items():
             if key == heb or key.startswith(heb):
                 mapping[raw] = canon
@@ -85,43 +90,108 @@ def _resolve_rename_map(raw_columns: list[str], rename_cfg: dict[str, str]) -> d
 
 
 def load_ses(cfg: dict[str, Any] | None = None) -> pd.DataFrame:
-    """Load the CBS socioeconomic index from the Excel workbook.
-
-    Steps:
-      1. Read sheet ``גיליון1`` using ``header=10`` (the real header row).
-      2. Drop fully-empty rows (removes the blank row 11 and any trailing blanks).
-      3. Rename Hebrew headers -> canonical English names.
-      4. Coerce the ``..`` (and similar) unranked placeholders to ``NaN`` and cast
-         the numeric columns to real numbers.
-    """
+    """Load the CBS socioeconomic index workbook."""
     cfg = cfg or load_config()
     s = cfg["ses"]
-    path = resolve(cfg["paths"]["raw_ses"])
-
-    df = pd.read_excel(path, sheet_name=s["sheet"], header=s["header_row"])
+    df = pd.read_excel(resolve(cfg["paths"]["raw_ses"]),
+                       sheet_name=s["sheet"], header=s["header_row"])
     df = df.dropna(how="all").reset_index(drop=True)
 
-    # Canonical English column names.
-    rename_map = _resolve_rename_map(list(df.columns), s["rename"])
-    df = df.rename(columns=rename_map)
+    df = df.rename(columns=_resolve_rename_prefix(list(df.columns), s["rename"]))
 
-    # Replace the unranked placeholder tokens with NaN, then make numerics numeric.
+    # CBS "unranked" placeholders -> NaN, then coerce the numerics.
     df = df.replace({tok: pd.NA for tok in s["na_tokens"]})
     for col in s["numeric_columns"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Drop rows with no locality code/name (defensive against stray footer rows).
     if "locality_name" in df.columns:
         df = df[df["locality_name"].notna()].reset_index(drop=True)
-
     return df
 
 
+# --------------------------------------------------------------------------- #
+# Dataset 3 — Ministry of Education budget (NEW in v2)                         #
+# --------------------------------------------------------------------------- #
+def _patch_openpyxl_colors() -> None:
+    """Make openpyxl tolerate the budget workbook's invalid theme colours.
+
+    Without this, ``load_workbook`` aborts with
+    ``ValueError: Colors must be aRGB hex values`` before a single cell is read.
+    """
+    import openpyxl.styles.colors as colors
+
+    if getattr(colors.RGB, "_v2_patched", False):
+        return
+    _orig = colors.RGB.__set__
+
+    def _lenient(self, instance, value):  # noqa: ANN001
+        try:
+            _orig(self, instance, value)
+        except (ValueError, TypeError):
+            _orig(self, instance, "00000000")
+
+    colors.RGB.__set__ = _lenient
+    colors.RGB._v2_patched = True
+
+
+def load_budget(cfg: dict[str, Any] | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Load the budget workbook; return (raw selected frame, ingestion report).
+
+    Steps:
+      1. Patch openpyxl, open ``read_only`` + ``data_only`` (values, not formulae).
+      2. Whitespace-normalise the Hebrew headers.
+      3. Drop the grand-totals row (any cell equal to ``סה"כ``).
+      4. Rename the configured columns EXACTLY (prefix matching would confuse
+         'סה"כ תקציב שכר ותשלומים' with its '- ללא קורונה' sibling) and keep only
+         those we actually use.
+    """
+    cfg = cfg or load_config()
+    b = cfg["budget"]
+    _patch_openpyxl_colors()
+    import openpyxl
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        wb = openpyxl.load_workbook(resolve(cfg["paths"]["raw_budget"]),
+                                    read_only=True, data_only=True)
+        ws = wb[b["sheet"]]
+        rows = list(ws.iter_rows(values_only=True))
+        wb.close()
+
+    header = [_norm_header(c) for c in rows[b["header_row"]]]
+    df = pd.DataFrame(rows[b["header_row"] + 1:], columns=header)
+    n_raw = len(df)
+
+    # Drop the grand-totals row.
+    totals = b["totals_label"]
+    is_totals = df.apply(lambda r: r.astype(str).str.strip().eq(totals).any(), axis=1)
+    df = df[~is_totals].reset_index(drop=True)
+
+    # EXACT rename of the configured subset.
+    rename_cfg: dict[str, str] = b["rename"]
+    present = {h: canon for h, canon in rename_cfg.items() if h in df.columns}
+    missing = [h for h in rename_cfg if h not in df.columns]
+    df = df[list(present.keys())].rename(columns=present)
+
+    report = {
+        "rows_raw": n_raw,
+        "rows_after_totals_drop": len(df),
+        "totals_rows_dropped": int(is_totals.sum()),
+        "columns_in_workbook": len(header),
+        "columns_requested": len(rename_cfg),
+        "columns_resolved": len(present),
+        "columns_missing": missing,
+        "known_empty_excluded": b.get("known_empty_columns", []),
+    }
+    return df, report
+
+
 if __name__ == "__main__":
-    # Quick self-check when run directly.
     cfg = load_config()
     bag = load_bagrut(cfg)
     ses = load_ses(cfg)
-    print(f"[io_load] bagrut: {bag.shape}  columns={list(bag.columns)}")
-    print(f"[io_load] ses:    {ses.shape}  columns={list(ses.columns)}")
+    bud, rep = load_budget(cfg)
+    print(f"[io_load] bagrut: {bag.shape}")
+    print(f"[io_load] ses:    {ses.shape}")
+    print(f"[io_load] budget: {bud.shape}  report={rep}")
