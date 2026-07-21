@@ -1,16 +1,18 @@
 # =============================================================================
-# BagrutProject — Step 2 Configuration (Data Merging & Integration)
-# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# BagrutProject v2 — Step 2 Configuration (Three-Way Merge)
+# Project: Predicting Bagrut Success from Municipal Socioeconomics and
+#          School-Level Institutional Resources
 # Authors: Yousef Shehade & Shada Esawi
 #
-# Self-contained STEP folder. Paths are relative to THIS folder (the one holding
-# this config.yaml); each code/ module resolves them from its own location, so
-# scripts run from any working directory. Step 2 consumes the cleaned caches
-# produced by Step 1 (one level up) and writes its own outputs here.
+# Self-contained STEP folder; paths are relative to this folder. Step 2 performs
+# TWO independent joins onto the Bagrut record-level table:
+#   Join A  Bagrut <-> CBS      on normalised locality NAME (4-stage fuzzy)
+#   Join B  Bagrut <-> Budget   on SCHOOL CODE semel (exact key, no fuzzy needed)
+# Both attach onto the same 69,638-row Bagrut table -> one consolidated matrix.
 # =============================================================================
 
 project:
-  title: "Predicting Israeli High School Bagrut Success Using Socioeconomic Data"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
     - "Yousef Shehade"
     - "Shada Esawi"
@@ -18,31 +20,30 @@ project:
 seed: 42
 
 paths:
-  # Inputs — Step 1 clean caches (shared, read-only).
   bagrut_clean: "../step_1_ingestion_standardization/data/bagrut_clean.csv"
   ses_clean:    "../step_1_ingestion_standardization/data/ses_clean.csv"
-  # Outputs — this step.
+  budget_clean: "../step_1_ingestion_standardization/data/budget_clean.csv"
   out_data:     "data"
   out_graphs:   "graphs"
-  merged_out:   "data/merged_bagrut_ses.csv"
-  mapping_out:  "data/city_mapping_log.csv"   # full audit log of every city -> SES decision
+  merged_out:   "data/merged_three_datasets.csv"
+  mapping_out:  "data/city_mapping_log.csv"
 
 io:
   encoding: "utf-8-sig"
 
+# -----------------------------------------------------------------------------
+# Join A — Bagrut <-> CBS  (fuzzy locality-name matching; semel is NOT usable —
+# it is a school code in Bagrut but a locality code in CBS, zero overlap)
+# -----------------------------------------------------------------------------
 matching:
-  bagrut_key: "city_norm"        # normalised locality key on the Bagrut side
-  ses_key:    "locality_norm"    # normalised locality key on the CBS side
-  ses_code:   "locality_code"    # CBS locality symbol (used as the join id)
-  # When several CBS localities share a normalised name (e.g. a large city and a
-  # tiny same-named moshav), keep the one with the largest population.
-  ses_dedup_by: "population"
-  # Stage 3 fuzzy alignment — conservative settings to avoid false positives.
-  fuzzy_threshold: 90            # token_sort_ratio score in [0, 100]
+  bagrut_key: "city_norm"
+  ses_key:    "locality_norm"
+  ses_code:   "locality_code"
+  ses_dedup_by: "population"     # keep the larger locality when names collide
+  fuzzy_threshold: 90            # token_sort_ratio in [0,100]; conservative
   fuzzy_scorer: "token_sort_ratio"
-  fuzzy_min_len_ratio: 0.6       # reject matches where the shorter/longer length ratio < this
+  fuzzy_min_len_ratio: 0.6       # reject matches where length ratio < this
 
-# CBS feature columns carried into the merged dataset.
 ses_feature_columns:
   - "locality_code"
   - "locality_name"
@@ -50,3 +51,43 @@ ses_feature_columns:
   - "population"
   - "index_value"
   - "cluster"
+
+# -----------------------------------------------------------------------------
+# Join B — Bagrut <-> Budget  (exact key: semel is a SCHOOL code in both)
+# -----------------------------------------------------------------------------
+budget_join:
+  key: "semel"
+  # Columns carried in from the budget table (categorical + numeric ingredients;
+  # ratio features such as total_budget_per_student are engineered in Step 3).
+  feature_columns:
+    - "district"
+    - "sector"
+    - "supervision"
+    - "legal_status"
+    - "education_stage"
+    - "nurture_quintile"
+    - "avg_class_size"
+    - "students_regular"
+    - "students_special"
+    - "classes_regular"
+    - "budget_total"
+    - "cost_teaching"
+    - "cost_tuition"
+    - "cost_perimeter"
+    - "cost_projects"
+    - "cost_purchases"
+    - "cost_transport"
+    - "hours_private"
+
+# Display labels reused from Step 1 (English category names for plots).
+display_labels:
+  sector:
+    "יהודי": "Jewish"
+    "ערבי": "Arab"
+    "בדואי": "Bedouin"
+    "דרוזי": "Druze"
+    "צרקסי": "Circassian"
+  supervision:
+    "ממלכתי": "State"
+    "ממלכתי דתי": "State-religious"
+    "חרדי": "Haredi"
