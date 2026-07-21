@@ -1,9 +1,12 @@
 # =============================================================================
 # BagrutProject — Python dependencies
-# Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# Predicting Bagrut Success from Municipal Socioeconomics and School-Level
+# Institutional Resources
 # Authors: Yousef Shihade & Shada Essawi
 #
-# Pinned to the verified, stable execution stack used across Steps 1-6.
+# Pinned to the verified, stable execution stack used across Steps 1-5 (all
+# three datasets — Bagrut, CBS socioeconomic index, Ministry budget report —
+# are ingested from Step 1 onward; see the root README for the pipeline map).
 # Tested on Anaconda Python 3.11 (Windows). Install with:
 #     pip install -r requirements.txt
 #
@@ -26,9 +29,8 @@ shap==0.45.1               # model explainability / beeswarm plots (Step 5)
 joblib==1.2.0              # model serialization (.joblib)
 
 # --- Data I/O & text matching ---
-openpyxl==3.0.10           # read CBS .xlsx (Step 1) + Ministry budget .xlsx (Step 6; lenient RGB patch for its malformed styles.xml)
+openpyxl==3.0.10           # read CBS .xlsx + Ministry budget .xlsx (Step 1; lenient RGB patch for the latter's malformed styles.xml)
 PyYAML==6.0.1              # per-step config.yaml loading
-chardet==4.0.0             # encoding detection for the raw Bagrut CSV (Step 1)
 rapidfuzz==3.14.5          # fuzzy Hebrew locality-name alignment (Step 2)
 
 # --- Visualization ---
