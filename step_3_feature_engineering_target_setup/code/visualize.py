@@ -1,20 +1,9 @@
 """
-visualize.py — Step 3 target-exploration plots.
+visualize.py — Step 3 diagnostic plots (v2: targets + engineered features).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
-
-Three figures saved to ``graphs/`` inspecting the engineered targets against the
-main predictor (CBS socioeconomic cluster):
-
-  1. cluster_vs_participation.png — cluster (1-10) vs 5-unit participation
-     (Math & English), boxplot per cluster.
-  2. cluster_vs_avg_grade.png     — cluster (1-10) vs takers-weighted average
-     grade (Math & English), boxplot per cluster.
-  3. target_distributions.png     — distributions of all four targets (grades and
-     the 0-1 bounded participation rates) to expose skew / bounding.
-
-Labels are kept in English (matplotlib does not shape RTL Hebrew well).
 """
 from __future__ import annotations
 
@@ -26,15 +15,14 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from io_load import load_config, resolve
-
-warnings.filterwarnings("ignore", category=FutureWarning, module="seaborn")
+warnings.filterwarnings("ignore", category=FutureWarning)
 sns.set_theme(style="whitegrid", context="talk")
 
-_SUBJ_PALETTE = {"Math": "#3b6ea5", "English": "#c44e52"}
+NAVY, TEAL, CORAL, GOLD = "#1b2a4a", "#2a9d8f", "#d1495b", "#e8b23a"
 
 
 def _save(fig: plt.Figure, out_dir: Path, name: str) -> Path:
@@ -45,73 +33,67 @@ def _save(fig: plt.Figure, out_dir: Path, name: str) -> Path:
     return path
 
 
-def _long_by_cluster(df: pd.DataFrame, math_col: str, eng_col: str,
-                     value_name: str) -> pd.DataFrame:
-    """Reshape to long form (cluster, subject, value), dropping NaN cluster/value."""
-    d = df[df["cluster"].notna()].copy()
-    d["cluster"] = d["cluster"].astype(int)
-    long = pd.concat([
-        d[["cluster", math_col]].rename(columns={math_col: value_name}).assign(Subject="Math"),
-        d[["cluster", eng_col]].rename(columns={eng_col: value_name}).assign(Subject="English"),
-    ], ignore_index=True).dropna(subset=[value_name])
-    return long
-
-
-def plot_cluster_vs_participation(df: pd.DataFrame, out_dir: Path) -> Path:
-    long = _long_by_cluster(df, "math_5unit_participation",
-                            "english_5unit_participation", "participation")
-    fig, ax = plt.subplots(figsize=(12, 6.5))
-    sns.boxplot(data=long, x="cluster", y="participation", hue="Subject",
-                order=range(1, 11), palette=_SUBJ_PALETTE, fliersize=2, ax=ax)
-    ax.set_title("Plot 1 — Socioeconomic Cluster vs 5-Unit Participation")
-    ax.set_xlabel("CBS socioeconomic cluster (1 = lowest, 10 = highest)")
-    ax.set_ylabel("Advanced (5-unit) participation rate")
-    ax.legend(title="Subject", loc="upper left")
-    return _save(fig, out_dir, "cluster_vs_participation.png")
-
-
-def plot_cluster_vs_avg_grade(df: pd.DataFrame, out_dir: Path) -> Path:
-    long = _long_by_cluster(df, "math_avg_grade", "english_avg_grade", "avg_grade")
-    fig, ax = plt.subplots(figsize=(12, 6.5))
-    sns.boxplot(data=long, x="cluster", y="avg_grade", hue="Subject",
-                order=range(1, 11), palette=_SUBJ_PALETTE, fliersize=2, ax=ax)
-    ax.set_title("Plot 2 — Socioeconomic Cluster vs Takers-Weighted Average Grade")
-    ax.set_xlabel("CBS socioeconomic cluster (1 = lowest, 10 = highest)")
-    ax.set_ylabel("Average Bagrut grade (weighted)")
-    ax.legend(title="Subject", loc="lower right")
-    return _save(fig, out_dir, "cluster_vs_avg_grade.png")
-
-
-def plot_target_distributions(df: pd.DataFrame, out_dir: Path) -> Path:
-    specs = [
-        ("math_avg_grade", "Math avg grade", "#3b6ea5", (40, 100)),
-        ("english_avg_grade", "English avg grade", "#c44e52", (40, 100)),
-        ("math_5unit_participation", "Math 5-unit participation", "#3b6ea5", (0, 1)),
-        ("english_5unit_participation", "English 5-unit participation", "#c44e52", (0, 1)),
-    ]
-    fig, axes = plt.subplots(2, 2, figsize=(13, 9))
-    for ax, (col, label, color, xlim) in zip(axes.ravel(), specs):
-        data = df[col].dropna()
-        sns.histplot(data, bins=30, kde=True, color=color, ax=ax)
-        ax.axvline(data.mean(), color="black", ls="--", lw=1.5,
-                   label=f"mean={data.mean():.2f}")
-        ax.axvline(data.median(), color="grey", ls=":", lw=1.5,
-                   label=f"median={data.median():.2f}")
-        ax.set_xlim(*xlim)
-        ax.set_title(label, fontsize=14)
-        ax.set_xlabel("")
-        ax.legend(fontsize=10)
-    fig.suptitle("Plot 3 — Engineered Target Distributions "
-                 "(grades ~normal; participation 0-1 bounded)", fontsize=16)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
+def plot_target_distributions(school_level: pd.DataFrame, out_dir: Path) -> Path:
+    targets = ["math_avg_grade", "english_avg_grade",
+              "math_5unit_participation", "english_5unit_participation"]
+    fig, axes = plt.subplots(2, 2, figsize=(13, 10))
+    for ax, t in zip(axes.flat, targets):
+        sns.histplot(school_level[t].dropna(), bins=40, kde=True,
+                    color=TEAL if "math" in t else NAVY, ax=ax)
+        ax.set_title(t)
+    fig.suptitle("Step 3 — Target distributions (school x year)", fontsize=16)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     return _save(fig, out_dir, "target_distributions.png")
 
 
-def run(school_level: pd.DataFrame, cfg: dict[str, Any] | None = None) -> list[Path]:
-    cfg = cfg or load_config()
-    out_dir = resolve(cfg["paths"]["out_graphs"])
-    return [
-        plot_cluster_vs_participation(school_level, out_dir),
-        plot_cluster_vs_avg_grade(school_level, out_dir),
-        plot_target_distributions(school_level, out_dir),
-    ]
+def plot_cluster_vs_targets(school_level: pd.DataFrame, out_dir: Path) -> Path:
+    d = school_level.dropna(subset=["cluster"]).copy()
+    d["cluster"] = d["cluster"].astype(int)
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    sns.boxplot(data=d, x="cluster", y="math_avg_grade", color=TEAL,
+               showfliers=False, ax=axes[0])
+    axes[0].set_title("Math avg grade by cluster")
+    sns.boxplot(data=d, x="cluster", y="english_avg_grade", color=NAVY,
+               showfliers=False, ax=axes[1])
+    axes[1].set_title("English avg grade by cluster")
+    fig.suptitle("Cluster vs Bagrut outcomes (municipal SES gradient)", fontsize=15)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    return _save(fig, out_dir, "cluster_vs_targets.png")
+
+
+def plot_feature_inventory(cfg: dict[str, Any], out_dir: Path) -> Path:
+    """Bar chart of the final feature count by source — the direct answer to
+    the 'too few features' critique."""
+    counts = {
+        "CBS\n(municipal)": len(cfg["cbs_features"]) - 1,  # exclude ses_locality_name (id, not a feature)
+        "Budget\ncategorical": len(cfg["budget_categorical"]),
+        "Budget\nnumeric": len(cfg["budget_direct_numeric"]) + len(cfg["budget_ratios"]) + 2,  # +special_ed_share +log_school_size
+        "Temporal": 1,  # year
+    }
+    fig, ax = plt.subplots(figsize=(9, 6))
+    bars = ax.bar(list(counts), list(counts.values()),
+                  color=[TEAL, GOLD, "#c98a3a", NAVY])
+    for b, v in zip(bars, counts.values()):
+        ax.text(b.get_x() + b.get_width() / 2, v, str(v), ha="center",
+                va="bottom", fontsize=13, fontweight="bold")
+    ax.set_ylabel("candidate features")
+    total = sum(counts.values())
+    ax.set_title(f"Step 3 — Candidate feature inventory  (total = {total})", fontsize=15)
+    return _save(fig, out_dir, "feature_inventory.png")
+
+
+def plot_budget_ratio_correlation(school_level: pd.DataFrame, cfg: dict[str, Any],
+                                  out_dir: Path) -> Path:
+    """Correlation of the 8 engineered budget ratios with the municipal cluster —
+    tests whether they are new/orthogonal information or a cluster proxy."""
+    ratio_cols = [c for c in cfg["budget_ratios"].keys() if c in school_level.columns]
+    cols = ["cluster"] + ratio_cols + ["avg_class_size", "special_ed_share"]
+    cols = [c for c in cols if c in school_level.columns]
+    corr = school_level[cols].corr()
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap="vlag", center=0, square=True,
+               cbar_kws={"shrink": 0.8}, ax=ax)
+    ax.set_title("Budget-derived features vs municipal cluster\n"
+                 "(near-zero = independent new information)", fontsize=14)
+    return _save(fig, out_dir, "budget_ratio_correlation.png")

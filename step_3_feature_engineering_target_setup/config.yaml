@@ -1,15 +1,17 @@
 # =============================================================================
-# BagrutProject — Step 3 Configuration (Feature Engineering & Target Setup)
-# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# BagrutProject v2 — Step 3 Configuration (Feature Engineering & Target Setup)
+# Project: Predicting Bagrut Success from Municipal Socioeconomics and
+#          School-Level Institutional Resources
 # Authors: Yousef Shehade & Shada Esawi
 #
-# Self-contained STEP folder. Paths are relative to THIS folder; each code/
-# module resolves them from its own location, so scripts run from any CWD.
-# Step 3 consumes Step 2's merged master table and re-grains it to SCHOOL level.
+# Consumes Step 2's three-way-merged record-level table and re-grains it to
+# SCHOOL level (semel x year). Targets are Math + English only (as in v1) — the
+# NEW part is engineering ~15 numeric + 6 categorical predictors from the budget
+# dataset alongside the original CBS municipal features.
 # =============================================================================
 
 project:
-  title: "Predicting Israeli High School Bagrut Success Using Socioeconomic Data"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
     - "Yousef Shehade"
     - "Shada Esawi"
@@ -17,7 +19,7 @@ project:
 seed: 42
 
 paths:
-  merged_in:        "../step_2_data_merging_integration/data/merged_bagrut_ses.csv"
+  merged_in:        "../step_2_data_merging_integration/data/merged_three_datasets.csv"
   out_data:         "data"
   out_graphs:       "graphs"
   school_level_out: "data/school_level_features_targets.csv"
@@ -25,35 +27,99 @@ paths:
 io:
   encoding: "utf-8-sig"
 
-# Modeling grain — one row per school per year. Chosen over school-only because
-# it ~quadruples sample volume and preserves year-over-year structure (and keeps
-# the door open for the optional Trajectory Analysis method later). The school id
-# (`semel`) is retained so modeling can use GroupKFold(semel) to avoid leakage.
+# Modeling grain — one row per school per year (unchanged from v1).
 grain: ["semel", "year"]
 
 subjects:
   core:
     math:    "מתמטיקה"
     english: "אנגלית"
-  # Academic-track study-unit levels used as the participation-rate denominator.
-  participation_units: [3, 4, 5]
-  # The "advanced track" == the 5-unit exam (participation numerator).
-  advanced_units: 5
+  participation_units: [3, 4, 5]   # academic-track denominator
+  advanced_units: 5                # advanced track == 5-unit exam
 
-# CBS socioeconomic predictors carried onto each school row (constant per semel).
-# NOTE: district / מחוז is NOT present in the downloaded CBS extract, so it is
-# documented as unavailable rather than fabricated. locality_form (צורת יישוב)
-# is the CBS settlement-type code and is retained as an extra structural feature.
+# -----------------------------------------------------------------------------
+# CBS municipal predictors carried onto each school row (constant per semel).
+# district / מחוז is still not in the CBS extract itself — but the budget file
+# now supplies a district column (see budget_categorical below).
+# -----------------------------------------------------------------------------
 cbs_features:
   - "cluster"
-  - "index_value"
+  - "index_value"       # kept for VIF demonstration; dropped before modeling (Step 5)
   - "population"
   - "locality_form"
   - "ses_locality_name"
 
-# Identifier / bookkeeping columns kept for interpretability and quality filtering.
+# -----------------------------------------------------------------------------
+# Budget-file columns carried onto each school row (also constant per semel —
+# one budget snapshot broadcast across a school's years; see Step 3 README for
+# the single-year-snapshot limitation this implies).
+# -----------------------------------------------------------------------------
+budget_categorical:
+  - "district"
+  - "sector"
+  - "supervision"
+  - "legal_status"
+  - "education_stage"
+
+budget_direct_numeric:        # already-meaningful features, no ratio needed
+  - "nurture_quintile"
+  - "avg_class_size"
+
+# Raw ingredients used ONLY to compute the per-student ratio features below
+# (not exposed to modeling directly — a raw budget total isn't comparable across
+# schools of very different sizes).
+budget_ratio_ingredients:
+  - "students_regular"
+  - "students_special"
+  - "budget_total"
+  - "cost_teaching"
+  - "cost_tuition"
+  - "cost_perimeter"
+  - "cost_projects"
+  - "cost_purchases"
+  - "cost_transport"
+  - "hours_private"
+
+# name -> (numerator column, denominator column). All divide by enrolled
+# REGULAR students (the standard Ministry denominator); special_ed_share and
+# log_school_size are computed separately (see feature_engineering.py).
+budget_ratios:
+  total_budget_per_student:    ["budget_total",   "students_regular"]
+  teaching_budget_per_student: ["cost_teaching",  "students_regular"]
+  tuition_per_student:         ["cost_tuition",   "students_regular"]
+  perimeter_per_student:       ["cost_perimeter", "students_regular"]
+  projects_per_student:        ["cost_projects",  "students_regular"]
+  purchases_per_student:       ["cost_purchases", "students_regular"]
+  # NOTE: cost_transport ("תקציב הסעות") is predominantly NEGATIVE in the raw
+  # Ministry file (86% of institutions) -> this is a net budget adjustment /
+  # correction figure, not gross transport spending. Kept as-is (real signal,
+  # sign is meaningful) but documented here and in the Step 3 README so it is
+  # never mis-read as a plain "cost".
+  transport_per_student:       ["cost_transport", "students_regular"]
+  private_hours_per_student:   ["hours_private",  "students_regular"]
+
 id_columns:
   - "school"
   - "city"
   - "city_norm"
   - "match_stage"
+
+# English display labels reused for plots (Hebrew renders reversed in matplotlib).
+display_labels:
+  sector:
+    "יהודי": "Jewish"
+    "ערבי": "Arab"
+    "בדואי": "Bedouin"
+    "דרוזי": "Druze"
+    "צרקסי": "Circassian"
+  supervision:
+    "ממלכתי": "State"
+    "ממלכתי דתי": "State-religious"
+    "חרדי": "Haredi"
+  district:
+    "ירושלים": "Jerusalem"
+    "תל אביב": "Tel Aviv"
+    "מרכז": "Center"
+    "צפון": "North"
+    "דרום": "South"
+    "חיפה": "Haifa"
