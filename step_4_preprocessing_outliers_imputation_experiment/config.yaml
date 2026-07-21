@@ -1,16 +1,20 @@
 # =============================================================================
-# BagrutProject — Step 4 Configuration
-# Preprocessing, Outlier Detection & the MICE Imputation Experiment
-# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# BagrutProject v2 — Step 4 Configuration
+# Preprocessing, Outlier Detection & the Multi-Iteration MICE Robustness Experiment
+# Project: Predicting Bagrut Success from Municipal Socioeconomics and
+#          School-Level Institutional Resources
 # Authors: Yousef Shehade & Shada Esawi
 #
-# Self-contained STEP folder. Paths are relative to THIS folder; each code/
-# module resolves them from its own location, so scripts run from any CWD.
-# Step 4 consumes Step 3's school-level table and produces a modeling-ready cache.
+# v2 CHANGE: the MICE experiment (Task A) now repeats the masking experiment
+# N_ITERATIONS times with different random seeds, reporting mean +/- std across
+# runs instead of a single R^2 — directly addressing the lecturer's feedback that
+# one masked run is not sufficient evidence of stability. Outlier detection
+# (Task B) and the exploratory questions (Task C) are otherwise unchanged from
+# v1, now operating on the richer v2 feature space.
 # =============================================================================
 
 project:
-  title: "Predicting Israeli High School Bagrut Success Using Socioeconomic Data"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
     - "Yousef Shehade"
     - "Shada Esawi"
@@ -22,26 +26,28 @@ paths:
   out_data:        "data"
   out_graphs:      "graphs"
   cleaned_out:     "data/cleaned_modeling_ready.csv"
+  mice_runs_out:   "data/mice_robustness_runs.csv"
 
 io:
   encoding: "utf-8-sig"
 
-# Target columns engineered in Step 3 (never imputed — small-cohort suppression).
 targets:
   - "math_avg_grade"
   - "english_avg_grade"
   - "math_5unit_participation"
   - "english_5unit_participation"
 
-# --- Task A: MICE imputation experiment -------------------------------------
+# --- Task A: MICE imputation robustness experiment (v2: multi-iteration) ----
 imputation_experiment:
-  # A fully-populated continuous feature to mask & reconstruct. index_value (the
-  # CBS continuous socioeconomic score) is 100% complete on cluster-present rows
-  # and strongly structured, so it cleanly contrasts MICE vs a median baseline.
+  # index_value (the CBS continuous socioeconomic score) is 100% complete on
+  # cluster-present rows and strongly structured -> cleanly contrasts MICE vs a
+  # median baseline. Same target as v1 for direct before/after comparability.
   target_feature: "index_value"
   mask_fraction: 0.08          # within the required 5-10% band
   mice_max_iter: 15
-  # Numeric predictors the IterativeImputer (MICE) may use to reconstruct values.
+  n_iterations: 25             # NEW: independent random-seed repeats (lecturer ask)
+  # Numeric predictors IterativeImputer (MICE) may use — expanded in v2 with the
+  # budget-derived features, so the demonstration reflects the richer dataset.
   predictors:
     - "cluster"
     - "index_value"
@@ -52,12 +58,16 @@ imputation_experiment:
     - "english_5unit_participation"
     - "math_takers_total"
     - "english_takers_total"
+    - "total_budget_per_student"
+    - "teaching_budget_per_student"
+    - "avg_class_size"
+    - "nurture_quintile"
+    - "special_ed_share"
 
-# --- Task B: Outlier detection ----------------------------------------------
+# --- Task B: Outlier detection (unchanged method, richer feature space) -----
 outliers:
-  contamination: 0.05          # expected anomaly fraction for both detectors
+  contamination: 0.05
   lof_neighbors: 20
-  # Feature space for anomaly detection (standardised inside the code).
   features:
     - "combined_avg_grade"
     - "math_5unit_participation"
@@ -66,11 +76,13 @@ outliers:
     - "index_value"
     - "log_population"
     - "log_total_takers"
+    - "total_budget_per_student"     # NEW: institutional resourcing dimension
+    - "avg_class_size"               # NEW: pedagogical resourcing dimension
 
-# --- Task C: exploratory questions ------------------------------------------
+# --- Task C: exploratory questions (unchanged from v1) ----------------------
 exploratory:
-  resilience_low_cluster: 2    # Q1: gap is measured between cluster 2 ...
-  resilience_high_cluster: 9   #      ... and cluster 9
-  overachiever_low_clusters: [1, 2, 3, 4]    # Q2: low-SES band
-  overachiever_elite_clusters: [8, 9, 10]    # Q2: elite benchmark band
-  overachiever_benchmark: "median"           # match/exceed elite median combined grade
+  resilience_low_cluster: 2
+  resilience_high_cluster: 9
+  overachiever_low_clusters: [1, 2, 3, 4]
+  overachiever_elite_clusters: [8, 9, 10]
+  overachiever_benchmark: "median"

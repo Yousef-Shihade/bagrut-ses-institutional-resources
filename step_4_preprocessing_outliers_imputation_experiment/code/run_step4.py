@@ -1,14 +1,16 @@
 """
-run_step4.py — Step 4 orchestrator.
+run_step4.py — Step 4 orchestrator (v2: preprocessing, outliers, MICE robustness).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
-Runs the three Step-4 tasks end to end and writes the modeling-ready cache:
-    Task A — MICE vs median imputation experiment
-    Task B — Isolation Forest + LOF outlier detection
-    Task C — Q1 subject resilience gap, Q2 low-SES overachievers
-    -> data/cleaned_modeling_ready.csv (+ 4 plots) + console summary
+Flow:
+    load Step-3 school-level table + derived columns
+    -> Task A: MICE robustness — 25 independent masking trials (NEW in v2)
+    -> Task B: Isolation Forest + LOF outlier detection (richer v2 feature space)
+    -> Task C: exploratory Q1 (resilience) + Q2 (overachievers) — unchanged
+    -> save cleaned_modeling_ready.csv + all diagnostic plots
 
 Usage:
     python code/run_step4.py
@@ -16,107 +18,103 @@ Usage:
 from __future__ import annotations
 
 import sys
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import pandas as pd  # noqa: E402
-
-import exploratory  # noqa: E402
+import exploratory as ex  # noqa: E402
 import imputation_experiment as imp  # noqa: E402
-import outliers as ol  # noqa: E402
+import outliers as out  # noqa: E402
 from io_load import load_config, load_school_level, resolve  # noqa: E402
 
 
 def _hr(c: str = "=") -> str:
-    return c * 74
+    return c * 78
 
 
 def main() -> None:
     cfg = load_config()
     graphs = resolve(cfg["paths"]["out_graphs"])
-    plots: list[Path] = []
+    data_dir = resolve(cfg["paths"]["out_data"])
+    data_dir.mkdir(parents=True, exist_ok=True)
 
     print(_hr())
-    print("STEP 4 — PREPROCESSING, OUTLIER DETECTION & IMPUTATION EXPERIMENT")
+    print("STEP 4 — PREPROCESSING, OUTLIERS & MICE ROBUSTNESS (v2)")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
 
     df = load_school_level(cfg)
+    print(f"\n[LOAD] school-level table: {df.shape}")
 
-    # ===================== Task A — MICE imputation ======================= #
-    impr = imp.run_experiment(df, cfg)
-    plots.append(imp.plot_comparison(impr, graphs))
-    print("\n[TASK A] MICE vs MEDIAN IMPUTATION  (feature = "
-          f"'{impr['target']}', {int(impr['mask_fraction']*100)}% of "
-          f"{impr['n_total']} rows masked = {impr['n_masked']} cells)")
-    print("    method   |    RMSE      MAE       R^2")
-    print(f"    MICE     |  {impr['mice']['RMSE']:7.4f}  {impr['mice']['MAE']:7.4f}  "
-          f"{impr['mice']['R2']:7.4f}")
-    print(f"    Median   |  {impr['median']['RMSE']:7.4f}  {impr['median']['MAE']:7.4f}  "
-          f"{impr['median']['R2']:7.4f}")
-    rmse_gain = (1 - impr["mice"]["RMSE"] / impr["median"]["RMSE"]) * 100
-    print(f"    -> MICE reduces RMSE by {rmse_gain:.1f}% vs the median baseline.")
+    # ---------------- Task A: MICE robustness (multi-iteration, NEW) -------- #
+    ie = cfg["imputation_experiment"]
+    print(f"\n[TASK A] MICE robustness — {ie['n_iterations']} independent masking trials")
+    print(f"    target feature: {ie['target_feature']}  |  mask fraction: {ie['mask_fraction']}")
+    print(f"    predictors ({len(ie['predictors'])}): {ie['predictors']}")
 
-    # ===================== Task B — Outliers ============================== #
-    df, osum = ol.detect(df, cfg)
-    plots.append(ol.plot_mapping(df, graphs))
-    print(f"\n[TASK B] OUTLIER DETECTION  (n_evaluated = {osum['n_evaluated']}, "
-          f"contamination = {cfg['outliers']['contamination']})")
-    print(f"    Isolation Forest flagged : {osum['iso_flagged']}")
-    print(f"    LOF flagged              : {osum['lof_flagged']}")
-    print(f"    consensus (both)         : {osum['overlap_both']}  "
-          f"(Jaccard = {osum['jaccard']:.2f})")
-    print(f"    flagged by either        : {osum['any_flagged']}  "
-          f"[iso-only {osum['iso_only']}, lof-only {osum['lof_only']}]")
+    mice_result = imp.run_multi_iteration(df, cfg)
+    s = mice_result["summary"]
+    print(f"\n    n masked per run: {s['n_masked']} / {s['n_total']} rows")
+    print(f"    MICE   R² = {s['MICE_R2_mean']:.4f} ± {s['MICE_R2_std']:.4f}  "
+          f"(range {s['MICE_R2_min']:.4f}–{s['MICE_R2_max']:.4f})")
+    print(f"    MICE   RMSE = {s['MICE_RMSE_mean']:.4f} ± {s['MICE_RMSE_std']:.4f}")
+    print(f"    Median R² = {s['Median_R2_mean']:.4f} ± {s['Median_R2_std']:.4f}")
+    print(f"    Median RMSE = {s['Median_RMSE_mean']:.4f} ± {s['Median_RMSE_std']:.4f}")
+    print(f"    -> MICE beats median on ALL {s['n_iterations']} runs: "
+          f"{(mice_result['runs']['MICE_R2'] > mice_result['runs']['Median_R2']).all()}")
 
-    # ===================== Task C — Exploratory =========================== #
-    q1 = exploratory.question1_resilience(df, cfg)
-    plots.append(exploratory.plot_resilience_gap(q1, graphs))
-    print(f"\n[TASK C — Q1] SUBJECT RESILIENCE  (cluster {q1['low_cluster']} vs "
-          f"{q1['high_cluster']} gap; smaller = more resilient)")
-    for s, v in q1["subjects"].items():
-        print(f"    {s:8s} grade {v['grade_lo']:5.1f}->{v['grade_hi']:5.1f} "
-              f"gap={v['grade_gap']:+5.2f}pts ({v['grade_gap_pct']:+4.1f}%, d={v['grade_cohens_d']:.2f}) | "
-              f"5u-part {v['part_lo']:.3f}->{v['part_hi']:.3f} gap={v['part_gap']:+.3f}")
-    print(f"    => MORE RESILIENT (grade gap): {q1['more_resilient_grade']};  "
-          f"(participation gap): {q1['more_resilient_participation']}")
+    mice_result["runs"].to_csv(resolve(cfg["paths"]["mice_runs_out"]), index=False,
+                               encoding=cfg["io"]["encoding"])
+    robustness_plot = imp.plot_robustness(mice_result, graphs)
+    print(f"    saved per-run detail: {Path(cfg['paths']['mice_runs_out']).name}")
 
-    q2 = exploratory.question2_overachievers(df, cfg)
-    plots.append(exploratory.plot_overachievers(q2, graphs))
-    print(f"\n[TASK C — Q2] LOW-SES OVERACHIEVERS  (clusters {q2['low_clusters']} "
-          f"matching elite {q2['elite_clusters']} {q2['benchmark_type']} grade "
-          f"{q2['benchmark']:.2f})")
-    print(f"    overachievers: {q2['n_over']}/{q2['n_low']} low-SES schools "
-          f"({q2['over_pct']:.1f}%)")
-    print(f"    advanced-track selection  Math 5u : {q2['over_math_part']:.3f} "
-          f"(over) vs {q2['normal_math_part']:.3f} (normal)  p={q2['p_math_part']:.1e}")
-    print(f"                              Eng  5u : {q2['over_eng_part']:.3f} "
-          f"(over) vs {q2['normal_eng_part']:.3f} (normal)  p={q2['p_eng_part']:.1e}")
-    print("    top overachievers (school | cluster | combined grade):")
-    for _, r in q2["top"].head(5).iterrows():
-        print(f"      - {r['school'][:28]:28s} cl{int(r['cluster'])}  {r['combined']:.1f}")
+    # ---------------- Task B: outlier detection ------------------------------ #
+    oc = cfg["outliers"]
+    print(f"\n[TASK B] Outlier detection — Isolation Forest + LOF")
+    print(f"    feature space ({len(oc['features'])}): {oc['features']}")
+    df, osumm = out.detect(df, cfg)
+    print(f"    evaluated: {osumm['n_evaluated']:,} complete-case rows")
+    print(f"    Isolation Forest flagged: {osumm['iso_flagged']}  |  LOF flagged: {osumm['lof_flagged']}")
+    print(f"    consensus (both): {osumm['overlap_both']}  |  Jaccard: {osumm['jaccard']:.3f}")
+    outlier_plot = out.plot_mapping(df, graphs)
 
-    # ===================== Cleaned modeling-ready cache =================== #
-    cleaned = df[df["cluster"].notna()].copy()
-    resolve(cfg["paths"]["out_data"]).mkdir(parents=True, exist_ok=True)
+    # ---------------- Task C: exploratory questions --------------------------- #
+    print(f"\n[TASK C] Exploratory questions (unchanged methodology from v1)")
+    q1 = ex.question1_resilience(df, cfg)
+    print(f"    Q1 — more resilient subject (smaller grade gap): {q1['more_resilient_grade']}")
+    for subj, r in q1["subjects"].items():
+        print(f"        {subj:8s} grade gap {r['grade_gap']:.2f} pts (d={r['grade_cohens_d']:.2f})  "
+              f"| participation gap {r['part_gap']:.3f}")
+    q1_plot = ex.plot_resilience_gap(q1, graphs)
+
+    q2 = ex.question2_overachievers(df, cfg)
+    print(f"\n    Q2 — low-SES overachievers: {q2['n_over']}/{q2['n_low']} = {q2['over_pct']:.1f}%")
+    print(f"        elite benchmark ({q2['benchmark_type']}): {q2['benchmark']:.2f}")
+    print(f"        overachiever participation: math {q2['over_math_part']:.3f} "
+          f"(p={q2['p_math_part']:.2e})  english {q2['over_eng_part']:.3f} (p={q2['p_eng_part']:.2e})")
+    q2_plot = ex.plot_overachievers(q2, graphs)
+
+    # ---------------- save cleaned table -------------------------------------- #
     out_path = resolve(cfg["paths"]["cleaned_out"])
-    cleaned.to_csv(out_path, index=False, encoding="utf-8-sig")
+    df.to_csv(out_path, index=False, encoding=cfg["io"]["encoding"])
+    print(f"\n[SAVE] {out_path.name}  ({df.shape[0]:,} x {df.shape[1]})  "
+          f"({out_path.stat().st_size/1024/1024:.2f} MB)")
 
-    print("\n[OUTPUT] CLEANED MODELING-READY DATASET")
-    print(f"    {out_path.name}: {cleaned.shape[0]:,} rows x {cleaned.shape[1]} cols "
-          "(cluster-present school-years)")
-    print(f"    outliers FLAGGED not dropped -> 'outlier_consensus' True: "
-          f"{int(cleaned['outlier_consensus'].sum())} "
-          f"(Step 5 can exclude via this flag)")
-    print(f"    targets retain NaN (suppression) — never imputed.")
-    print("    graphs:")
-    for p in plots:
-        print(f"      - {Path(p).name:34s} ({Path(p).stat().st_size/1024:6.1f} KB)")
+    print("\n[PLOTS]")
+    for p in [robustness_plot, outlier_plot, q1_plot, q2_plot]:
+        print(f"    - {p.name:38s} ({p.stat().st_size/1024:6.1f} KB)")
 
     print("\n" + _hr())
-    print("STEP 4 COMPLETE ✔   (awaiting signal for Step 5)")
+    print("STEP 4 COMPLETE ✔  — MICE robustness proven, outliers flagged, "
+          "exploratory findings computed.")
     print(_hr())
 
 

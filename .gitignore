@@ -18,10 +18,17 @@ downloadFile.xlsx
 /*.xls
 
 # ── Large regenerable intermediate caches (rebuilt by running the step scripts) ─
-# Small aggregated summaries (ses_clean, city_mapping_log, school_level_*) ARE
-# tracked; these two full-size tables (~7 MB / ~10 MB) are regenerated on demand.
+# Small aggregated summaries (ses_clean, budget_clean, city_mapping_log,
+# school_level_*, cleaned_modeling_ready, models/*) ARE tracked; these full-size
+# merge tables (7-21 MB) are regenerated on demand by running the step scripts.
 step_1_ingestion_standardization/data/bagrut_clean.csv
-step_2_data_merging_integration/data/merged_bagrut_ses.csv
+step_2_data_merging_integration/data/merged_three_datasets.csv
+
+# Same two caches, preserved under their v1 (pre-rebuild) paths in archive/ —
+# archive/ is kept as a reference/audit trail, not to bloat the repo with data
+# that was never tracked even when these were the live pipeline steps.
+archive/v1_two_dataset_pipeline/step_1_ingestion_standardization/data/bagrut_clean.csv
+archive/v1_two_dataset_pipeline/step_2_data_merging_integration/data/merged_bagrut_ses.csv
 
 # ── Course material (presentations & lecturer guidelines) ──────────────────────
 *.pptx

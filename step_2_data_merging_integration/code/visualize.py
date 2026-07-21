@@ -1,19 +1,19 @@
 """
-visualize.py — Step 2 merge-health & bias plots.
+visualize.py — Step 2 diagnostic plots (three-way merge, v2).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
-Three figures saved to ``graphs/``:
-
-  1. match_yield_waterfall.png — records resolved at each alignment stage
-     (Exact -> Structural -> Crosswalk -> Fuzzy -> Unmatched), proving efficacy.
-  2. missingness_bias_by_size.png — cohort size (``takers``) for matched vs
-     unmatched records, testing whether data loss is random or structural.
-  3. socioeconomic_representation.png — distribution of successfully integrated
-     records across the CBS clusters 1-10 (coverage across the SES spectrum).
-
-Labels are kept in English (matplotlib does not shape RTL Hebrew well).
+Plots:
+1. match_yield_waterfall.png  — Join A (CBS) stage-by-stage yield (exact ->
+                                structural -> crosswalk -> fuzzy -> unmatched).
+2. dual_join_success.png      — Join A vs Join B match rate, side by side (the
+                                new v2 story: one join is fuzzy/hard, one is
+                                clean/easy, and BOTH feed the same final table).
+3. sector_supervision_by_cluster.png — NEW: does the budget dataset's school-level
+                                sector/supervision correlate with municipal SES
+                                cluster, or is it an independent axis of variation?
 """
 from __future__ import annotations
 
@@ -25,20 +25,15 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from io_load import load_config, resolve
-
-warnings.filterwarnings("ignore", category=FutureWarning, module="seaborn")
+warnings.filterwarnings("ignore", category=FutureWarning)
 sns.set_theme(style="whitegrid", context="talk")
 
-_STAGE_ORDER = ["exact", "structural", "crosswalk", "fuzzy", "unmatched"]
-_STAGE_COLORS = {
-    "exact": "#2a9d8f", "structural": "#457b9d", "crosswalk": "#e9c46a",
-    "fuzzy": "#f4a261", "unmatched": "#d1495b",
-}
+NAVY, TEAL, CORAL, GOLD = "#1b2a4a", "#2a9d8f", "#d1495b", "#e8b23a"
+STAGE_COLORS = {"exact": TEAL, "structural": "#5aa6a0", "crosswalk": GOLD,
+                "fuzzy": "#c98a3a", "unmatched": CORAL}
 
 
 def _save(fig: plt.Figure, out_dir: Path, name: str) -> Path:
@@ -49,100 +44,65 @@ def _save(fig: plt.Figure, out_dir: Path, name: str) -> Path:
     return path
 
 
-def plot_match_yield_waterfall(merged: pd.DataFrame, out_dir: Path) -> Path:
-    """Plot 1 — records resolved per alignment stage + cumulative match %.
-
-    One bar per stage (Exact dominates, so a log y-axis keeps the small
-    Crosswalk/Fuzzy passes legible) with an overlaid cumulative-match-% line.
-    """
-    counts = merged["match_stage"].value_counts()
-    total = len(merged)
-    vals = [int(counts.get(s, 0)) for s in _STAGE_ORDER]
-    colors = [_STAGE_COLORS[s] for s in _STAGE_ORDER]
+def plot_match_yield_waterfall(mapping: pd.DataFrame, out_dir: Path) -> Path:
+    """Join A (Bagrut<->CBS): records matched at each stage, in order."""
+    order = ["exact", "structural", "crosswalk", "fuzzy", "unmatched"]
+    by_stage = mapping.groupby("stage")["n_records"].sum().reindex(order, fill_value=0)
+    total = by_stage.sum()
+    pct = 100 * by_stage / total
 
     fig, ax = plt.subplots(figsize=(11, 6.5))
-    bars = ax.bar(_STAGE_ORDER, vals, color=colors, edgecolor="white", zorder=3)
-    ax.set_yscale("log")
-    ax.set_ylim(1, total * 2)
-    for p, v in zip(bars, vals):
-        ax.text(p.get_x() + p.get_width() / 2, v * 1.15,
-                f"{v:,}\n({v/total*100:.2f}%)", ha="center", va="bottom", fontsize=11)
-
-    # Cumulative matched % across the matching stages (excludes 'unmatched').
-    ax2 = ax.twinx()
-    cum, cum_pts = 0, []
-    for s in _STAGE_ORDER:
-        if s != "unmatched":
-            cum += int(counts.get(s, 0))
-        cum_pts.append(cum / total * 100)
-    ax2.plot(_STAGE_ORDER, cum_pts, color="#222", marker="o", lw=2, zorder=4)
-    ax2.set_ylim(90, 100.8)
-    ax2.set_ylabel("Cumulative match % (line)")
-    # Label the two informative endpoints only, offset to avoid the bar labels.
-    ax2.annotate(f"{cum_pts[0]:.2f}%", (0, cum_pts[0]), textcoords="offset points",
-                 xytext=(-2, -18), ha="center", fontsize=10, color="#222")
-    ax2.annotate(f"{cum_pts[3]:.2f}%", (3, cum_pts[3]), textcoords="offset points",
-                 xytext=(0, 10), ha="center", fontsize=10, color="#222")
-
-    matched = sum(int(counts.get(s, 0)) for s in _STAGE_ORDER if s != "unmatched")
-    ax.set_title("Plot 1 — Stage-by-Stage Match Yield\n"
-                 f"matched {matched:,}/{total:,} = {matched/total*100:.2f}%")
-    ax.set_ylabel("Bagrut records per stage (log scale, bars)")
-    ax.set_xlabel("Alignment stage")
+    bars = ax.bar(order, by_stage.values, color=[STAGE_COLORS[s] for s in order])
+    for b, v, p in zip(bars, by_stage.values, pct.values):
+        ax.text(b.get_x() + b.get_width() / 2, v, f"{v:,}\n({p:.2f}%)",
+                ha="center", va="bottom", fontsize=11)
+    cum_matched = 100 - pct["unmatched"]
+    ax.set_title(f"Join A — Bagrut ↔ CBS locality-name match yield\n"
+                 f"cumulative matched = {cum_matched:.2f}% of exam records", fontsize=15)
+    ax.set_ylabel("Bagrut exam records")
     return _save(fig, out_dir, "match_yield_waterfall.png")
 
 
-def plot_missingness_bias_by_size(merged: pd.DataFrame, out_dir: Path) -> Path:
-    """Plot 2 — takers distribution for matched vs unmatched records."""
-    df = merged[["takers"]].copy()
-    df["status"] = np.where(merged["cluster"].notna(), "Matched (has cluster)",
-                            "Unmatched")
-    med = df.groupby("status")["takers"].median()
-    fig, ax = plt.subplots(figsize=(10, 6.5))
-    order = ["Matched (has cluster)", "Unmatched"]
-    sns.boxplot(data=df, x="status", y="takers", order=order,
-                palette={"Matched (has cluster)": "#2a9d8f", "Unmatched": "#d1495b"},
-                ax=ax)
-    ax.set_yscale("log")
-    ax.set_title("Plot 2 — Missingness Bias by School Size\n"
-                 "(cohort size of matched vs unmatched records)")
-    ax.set_xlabel("")
-    ax.set_ylabel("Test-takers per record (log scale)")
-    for i, s in enumerate(order):
-        if s in med.index:
-            ax.annotate(f"median = {med[s]:.0f}", (i, med[s]), ha="center",
-                        va="bottom", fontsize=12, fontweight="bold")
-    return _save(fig, out_dir, "missingness_bias_by_size.png")
+def plot_dual_join_success(join_a_pct: float, join_b_pct: float,
+                           join_a_label: str, join_b_label: str,
+                           out_dir: Path) -> Path:
+    """Side-by-side match rate for the two independent joins feeding Step 2."""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    labels = [join_a_label, join_b_label]
+    vals = [join_a_pct, join_b_pct]
+    colors = [TEAL, GOLD]
+    bars = ax.bar(labels, vals, color=colors, width=0.5)
+    for b, v in zip(bars, vals):
+        ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.2f}%", ha="center",
+                va="bottom", fontsize=14, fontweight="bold")
+    ax.set_ylim(0, 108)
+    ax.axhline(100, color="grey", ls="--", lw=1)
+    ax.set_ylabel("% of Bagrut exam records matched")
+    ax.set_title("Two independent joins feed one consolidated table", fontsize=15)
+    return _save(fig, out_dir, "dual_join_success.png")
 
 
-def plot_socioeconomic_representation(merged: pd.DataFrame, out_dir: Path) -> Path:
-    """Plot 3 — integrated records across CBS socioeconomic clusters 1-10.
+def plot_sector_supervision_by_cluster(merged: pd.DataFrame, cfg: dict[str, Any],
+                                       out_dir: Path) -> Path:
+    """Does the school-level sector/supervision track the municipal cluster?
 
-    The CBS extract has no district/מחוז column, so we verify coverage along the
-    socioeconomic dimension instead: how the successfully merged Bagrut records
-    spread across clusters 1 (lowest) to 10 (highest).
+    If NOT (i.e. sector/supervision varies widely within every cluster), that is
+    evidence the budget dataset adds an INDEPENDENT axis of variation, not a proxy
+    for municipal SES that Boruta would find redundant.
     """
-    clusters = merged.loc[merged["cluster"].notna(), "cluster"].astype(int)
-    counts = clusters.value_counts().reindex(range(1, 11), fill_value=0)
-    pct = counts / counts.sum() * 100
-    fig, ax = plt.subplots(figsize=(11, 6.5))
-    bars = sns.barplot(x=list(counts.index), y=counts.values, palette="viridis", ax=ax)
-    for p, c, pc in zip(bars.patches, counts.values, pct.values):
-        ax.annotate(f"{c:,}\n{pc:.1f}%", (p.get_x() + p.get_width() / 2, c),
-                    ha="center", va="bottom", fontsize=10)
-    ax.set_title("Plot 3 — Socioeconomic Representation of Merged Records\n"
-                 "(integrated Bagrut records per CBS cluster)")
-    ax.set_xlabel("CBS socioeconomic cluster (1 = lowest, 10 = highest)")
-    ax.set_ylabel("Merged Bagrut records")
-    ax.margins(y=0.12)
-    return _save(fig, out_dir, "socioeconomic_representation.png")
+    labels = cfg.get("display_labels", {})
+    d = merged.dropna(subset=["cluster", "sector"]).copy()
+    d["cluster"] = d["cluster"].astype(int)
+    d["sector_en"] = d["sector"].map(lambda v: labels.get("sector", {}).get(v, v))
 
-
-def run(merged: pd.DataFrame, cfg: dict[str, Any] | None = None) -> list[Path]:
-    cfg = cfg or load_config()
-    out_dir = resolve(cfg["paths"]["out_graphs"])
-    return [
-        plot_match_yield_waterfall(merged, out_dir),
-        plot_missingness_bias_by_size(merged, out_dir),
-        plot_socioeconomic_representation(merged, out_dir),
-    ]
+    fig, ax = plt.subplots(figsize=(12, 6.5))
+    ct = pd.crosstab(d["cluster"], d["sector_en"], normalize="index") * 100
+    ct.plot(kind="bar", stacked=True, ax=ax,
+           color=sns.color_palette("Set2", n_colors=ct.shape[1]))
+    ax.set_title("School sector composition WITHIN each socioeconomic cluster\n"
+                 "(if bars vary a lot by cluster, sector is not a cluster proxy)",
+                 fontsize=14)
+    ax.set_xlabel("CBS socioeconomic cluster")
+    ax.set_ylabel("% of exam records")
+    ax.legend(title="Sector", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=10)
+    return _save(fig, out_dir, "sector_supervision_by_cluster.png")

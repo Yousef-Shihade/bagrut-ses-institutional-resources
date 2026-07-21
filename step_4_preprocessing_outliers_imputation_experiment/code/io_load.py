@@ -1,14 +1,16 @@
 """
 io_load.py — Step 4 input loading & shared feature prep.
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
-Loads the central config and Step 3's school-level table, and adds two derived
-columns reused across Step 4 tasks:
+Loads Step 3's school-level table and adds two derived columns reused across
+Step 4 tasks:
   * combined_avg_grade  = mean(math_avg_grade, english_avg_grade)  (row-wise)
-  * log_population, log_total_takers = log1p transforms (population / takers are
-    heavily right-skewed, so logs stabilise the outlier-detection feature space).
+  * log_total_takers    = log1p(math_takers_total + english_takers_total)
+``log_population`` is already computed in Step 3 (v2 moved it there since it is
+a deterministic feature-engineering transform, not a preprocessing step).
 """
 from __future__ import annotations
 
@@ -19,7 +21,6 @@ import numpy as np
 import pandas as pd
 import yaml
 
-# Step root = the directory that contains config.yaml (one level above code/).
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "config.yaml"
 
@@ -41,7 +42,6 @@ def load_school_level(cfg: dict[str, Any] | None = None) -> pd.DataFrame:
     df["combined_avg_grade"] = df[["math_avg_grade", "english_avg_grade"]].mean(axis=1)
     total_takers = df[["math_takers_total", "english_takers_total"]].sum(axis=1, min_count=1)
     df["total_takers"] = total_takers
-    df["log_population"] = np.log1p(df["population"])
     df["log_total_takers"] = np.log1p(total_takers)
     return df
 
@@ -50,5 +50,4 @@ if __name__ == "__main__":
     cfg = load_config()
     df = load_school_level(cfg)
     print(f"[io_load] school-level: {df.shape}")
-    print(f"[io_load] derived cols added: combined_avg_grade, total_takers, "
-          f"log_population, log_total_takers")
+    print("[io_load] derived cols added: combined_avg_grade, total_takers, log_total_takers")

@@ -1,188 +1,141 @@
-# Step 2 — Data Merging & Integration
+# Step 2 — Three-Way Merge (v2)
 
-**Project:** Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+**Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shehade & Shada Esawi
 
-> Self-contained milestone folder. Step 2 joins the Step-1 cleaned caches into a
-> single school-records table enriched with CBS socioeconomic data, using a
-> deterministic **multi-stage alignment** that maximises data retention and logs
-> every decision for the "Possible Data Biases" slide.
-
-**External data sources**
-
-The raw source files are git-ignored (not redistributed). To reproduce, download
-them into the project-root `datasets/` folder and re-run Steps 1–2:
-
-- **Dataset 1 — Bagrut Grades 2013–2016** (Israeli Freedom of Information Law),
-  hosted on Kaggle: <https://www.kaggle.com/datasets/emachlev/bagrut-israel/data>
-- **Dataset 2 — CBS Socioeconomic Index** (the socioeconomic cluster joined in
-  this step): official publication of the **Israel Central Bureau of Statistics**
-  (CBS / הלשכה המרכזית לסטטיסטיקה) — <https://www.cbs.gov.il/>.
+> **v2 change.** Two independent joins now feed **one** consolidated record-level
+> table in this step — Bagrut↔CBS (as in v1) **and** Bagrut↔Budget (new). Both
+> attach directly onto the raw 69,638-row Bagrut table, so the budget dataset is
+> part of the core pipeline from here on, not a Step 6 afterthought.
 
 ---
 
-## 1. What Step 2 accomplishes
-
-1. Loads the Step-1 caches (`bagrut_clean.csv`, `ses_clean.csv`).
-2. **Deduplicates the CBS table** so the join cannot explode rows.
-3. Runs a **4-pass alignment** (Exact → Structural → Crosswalk → Fuzzy) matching
-   `city_norm` ↔ `locality_norm`, resolving each city to one CBS `locality_code`.
-4. Merges CBS features (cluster, index value, population, …) onto **every** Bagrut
-   record (unmatched rows kept with NaN — nothing is silently dropped).
-5. Writes `merged_bagrut_ses.csv` + a full `city_mapping_log.csv` audit trail.
-6. Produces 3 merge-health / bias plots and a printed verification summary.
-
-**Headline result: 69,246 / 69,638 records matched = 99.44 %** (98.90 % carry a
-usable cluster 1–10; the gap is matched-but-CBS-unranked `..` localities).
-
----
-
-## 2. Directory structure
+## 1. Directory structure
 
 ```
 step_2_data_merging_integration/
-├── README.md                     # this file
-├── config.yaml                   # paths to Step-1 caches + Step-2 outputs, matching params
+├── README.md
+├── config.yaml
 ├── code/
-│   ├── io_load.py                # load config + Step-1 caches (key sanity checks)
-│   ├── crosswalk.py              # structural_key() + hardcoded CROSSWALK_NAME / CROSSWALK_CODE
-│   ├── matching.py               # dedup_ses, build_city_mapping (4 passes), merge
-│   ├── visualize.py              # the 3 merge-health plots
-│   └── run_step2.py              # orchestrator + verification & bias log
+│   ├── io_load.py       # load the 3 Step-1 clean caches
+│   ├── crosswalk.py      # Join A: structural_key() + hand-verified name/code maps
+│   ├── matching.py       # Join A: 4-stage alignment (exact→structural→crosswalk→fuzzy)
+│   ├── budget_join.py     # Join B: exact semel key merge — NEW in v2
+│   ├── visualize.py       # 3 diagnostic plots
+│   └── run_step2.py       # orchestrator + verification summary
 ├── data/
-│   ├── merged_bagrut_ses.csv     # FINAL merged dataset (69,638 × 18)
-│   └── city_mapping_log.csv      # per-city audit: stage, score, matched code/name
+│   ├── merged_three_datasets.csv   # 69,638 × 36 consolidated matrix
+│   └── city_mapping_log.csv         # full audit log, every city → CBS decision
 └── graphs/
-    ├── match_yield_waterfall.png
-    ├── missingness_bias_by_size.png
-    └── socioeconomic_representation.png
 ```
 
-Run from this folder: `python code/run_step2.py` (also works via full path from the
-project root; paths are anchored to the step folder, not the CWD).
+Run: `python code/run_step2.py`.
 
 ---
 
-## 3. Why the join key is the city name (not `semel`)
+## 2. Two joins, two different problems
 
-The Bagrut `semel` is a **school** code; the CBS `סמל היישוב` is a **locality**
-code — different numbering systems with **zero** overlap. The only viable join is
-on the normalised locality name produced in Step 1.
-
-### 3a. Mandatory CBS de-duplication (prevents row explosion)
-Nine CBS localities collapse to a shared normalised name after Step-1 cleaning —
-typically a large city plus a tiny same-named moshav/kibbutz, e.g.:
-
-| normalised name | variant A (kept) | variant B (dropped) |
+| | Join A — Bagrut ↔ CBS | Join B — Bagrut ↔ Budget |
 |---|---|---|
-| `טייבה` | city, pop 40,842, cluster 3 | `טייבה (בעמק)`, pop 1,751 |
-| `טמרה` | city, pop 32,048, cluster 2 | `טמרה (יזרעאל)`, pop 1,513 |
-| `כנרת`, `גבעת חיים`, `עין חרוד`, `בן שמן`, `מרחביה`, `אשדות יעקב`, `קריית יערים` | … | … |
+| **Key** | normalised locality **name** | school code **`semel`** |
+| **Why not `semel`?** | `semel` is a *school* code in Bagrut but a *locality* code in CBS — **zero overlap** | `semel` is a *school* code in **both** — directly usable |
+| **Method** | 4-stage fuzzy match (ported unchanged from v1, proven 99.44%) | exact key merge, no fuzzy logic needed |
+| **Difficulty** | hard — genuine Hebrew spelling/administrative variation | easy — same identifier system |
 
-We keep **the most populous** variant per name. Left unhandled, these duplicates
-would turn the merge many-to-many and **inflate** the high-volume city records
-(טייבה/טמרה are large). Verified: input 69,638 → output 69,638 rows (no explosion).
-
----
-
-## 4. The multi-stage alignment strategy
-
-Each unique Bagrut city key (315 of them) is resolved in order:
-
-| Stage | Method | Cities | Records | Cum. match % |
-|------:|--------|------:|--------:|-------------:|
-| 1 — Exact | `city_norm == locality_norm` | 291 | 64,605 | 92.77 % |
-| 2a — Structural | equal after `structural_key()` (strip `*`, normalise hyphen spacing) | 4 | 3,425 | 97.69 % |
-| 2b — Crosswalk | hardcoded `CROSSWALK_NAME` / `CROSSWALK_CODE` | 12 | 1,035 | 99.18 % |
-| 3 — Fuzzy | `token_sort_ratio ≥ 90` + length-ratio guard | 3 | 181 | 99.44 % |
-| — Unmatched | kept with NaN CBS fields | 5 | 392 | (0.56 % residual) |
-
-### Stage 2a — structural transform (`crosswalk.structural_key`)
-Strips the CBS footnote `*` and collapses whitespace around hyphens, applied to
-both sides. Auto-resolves: `מודיעין-מכבים-רעות*`, `בנימינה-גבעת עדה*`, `מולדה*`,
-and `תל אביב - יפו` ↔ `תל אביב -יפו`.
-
-### Stage 2b — hardcoded crosswalk (`crosswalk.py`)
-- `CROSSWALK_NAME` — genuine spelling / name-pair fixes, e.g. `עופרה→עפרה`,
-  `נוה→נווה`, `יהוד-מונוסון→יהוד מונוסון`, `אבו קרינאת יישוב→אבו קורינאת`,
-  `ג ש גוש חלב→ג ש`, `פקיעין בוקייעה→פקיעין`, `תראבין א-צאנע ישוב→תרבין א-צאנע *`.
-- `CROSSWALK_CODE` — pins the **correct** CBS locality when one name maps to
-  several. Critically these target low-population variants that de-dup drops, so
-  they are resolved against the **full** CBS table:
-  `בן שמן כפר נוער→1084` (youth village, **cluster 1**, not the moshav cluster 9),
-  `כנרת קבוצה→57`, `עין חרוד מאוחד→82`, `גבעת חיים איחוד→2018`,
-  `קריית יערים מוסד→2039`.
-
-### Stage 3 — conservative fuzzy (`rapidfuzz`)
-`token_sort_ratio ≥ 90` plus a length-ratio guard (≥ 0.6). `token_sort_ratio`
-was chosen over `WRatio` because `WRatio` inflates substring matches and would
-falsely link e.g. `מרכז אזורי שוהם → שוהם` (90) or `כפר זוהרים → זוהר`; the guard
-+ scorer reject all of these. **All 3 accepted matches are pure yod-doubling
-variants**, each manually confirmed correct:
-
-| Bagrut | → CBS | score |
-|---|---|---|
-| `צפריה` | `צפרייה` | 90.9 |
-| `טובא-זנגריה` | `טובא-זנגרייה` | 95.7 |
-| `שומריה` | `שומרייה` | 92.3 |
+Join A logic (`crosswalk.py`, `matching.py`) is **reused verbatim from v1** — it
+was already rigorously validated, so there was no reason to rebuild it.
 
 ---
 
-## 5. Possible data biases (the unmatched 0.56 %)
+## 3. Results
 
-5 city keys / **392 records** remain unmatched. They are **non-municipal by
-nature** (so the absence is structural, not a quality defect):
+### Join A — Bagrut ↔ CBS (locality name)
 
-| City key | Records | Why unmatched |
-|---|--:|---|
-| `מקווה ישראל` | 194 | agricultural youth village (institution, no locality cluster) |
-| `בתי ספר של מרחבים` | 91 | "schools of Merhavim" — regional-council schools, not a town |
-| `מרכז אזורי שוהם` | 43 | regional center serving many localities |
-| `כפר זוהרים` | 35 | absent from the CBS index |
-| `קדמה` | 29 | educational community, absent from the CBS index |
+| Stage | Records | % |
+|---|--:|--:|
+| exact | 64,605 | 92.77% |
+| structural | 3,425 | 4.92% |
+| crosswalk | 1,035 | 1.49% |
+| fuzzy | 181 | 0.26% |
+| **unmatched** | 392 | 0.56% |
+| **TOTAL MATCHED** | **69,246** | **99.44%** |
 
-**Bias direction check:** median `takers` is **21 (matched) vs 23 (unmatched)** —
-essentially identical, so the data loss is **not biased by school size** (it is
-not systematically dropping small or large schools). The loss is concentrated in
-boarding/regional institutions, which we document rather than force-match.
+Identical to v1 (same proven logic, same data) — 5 distinct cities remain
+unmatched (youth villages / regional schools genuinely absent from the CBS
+extract).
 
-> **Representation note (Plot 3):** at the record level, clusters **9–10 are
-> heavily under-represented** (1.5 % / 0.0 %) while clusters 2, 7, 8 dominate.
-> High-SES localities are few and rarely host large public high schools. This is
-> a real-world representation limitation to flag for modelling, not a merge bug.
+### Join B — Bagrut ↔ Budget (`semel`) — NEW
 
----
+| | Matched | Total | % |
+|---|--:|--:|--:|
+| **Schools** | 1,048 | 1,063 | **98.59%** |
+| **Records** | 69,413 | 69,638 | **99.68%** |
 
-## 6. Output schema — `merged_bagrut_ses.csv` (69,638 × 18)
+A clean key join outperforms even the fuzzy name join — confirming the decision
+to use `semel` wherever possible.
 
-Bagrut columns (`grade`, `takers`, `studyunits`, `year`, `subject`, `city`,
-`school`, `semel`, `city_norm`) **+** merge metadata (`match_stage`,
-`fuzzy_score`, `matched_code`) **+** CBS features (`ses_locality_code`,
-`ses_locality_name`, `locality_form`, `population`, `index_value`, `cluster`).
+### The consolidated matrix
 
-`city_mapping_log.csv` records, for all 315 cities: `stage`, `score`,
-`matched_locality_norm`, `matched_code`, `n_records` — the full audit trail.
+| | |
+|---|--:|
+| Shape | **69,638 rows × 36 columns** |
+| CBS columns attached | 4 |
+| Budget columns attached | 18 |
+| **Rows with BOTH CBS + Budget** | **68,745 (98.72%)** |
 
----
-
-## 7. Dependencies
-
-`pandas`, `numpy`, `pyyaml`, `matplotlib`, `seaborn`, and **`rapidfuzz` 3.14.5**
-(installed this step). Anaconda Python 3.11.
+Row count is **unchanged from the raw Bagrut input** — both joins are left joins,
+so nothing is duplicated or dropped here; unmatched cells simply carry `NaN` and
+are handled in Step 4.
 
 ---
 
-## 8. Step 2 verification checklist
+## 4. Diagnostic plots
 
-- [x] Step-1 caches loaded; required keys present.
-- [x] CBS de-duplicated 1,208 → 1,199; most-populous variant kept (טייבה→city).
-- [x] 4-pass alignment executed; per-stage yield logged.
-- [x] **Total match rate 99.44 %** (target was 95–98 %); cluster coverage 98.90 %.
-- [x] Code-pinned variants verified (בן שמן כפר נוער → cluster 1, not 9).
-- [x] Fuzzy stage conservative — 3 matches, all correct, 0 false positives.
-- [x] **No row explosion**: 69,638 → 69,638.
-- [x] `merged_bagrut_ses.csv` (69,638 × 18) + `city_mapping_log.csv` written.
-- [x] 3/3 merge-health plots saved to `graphs/`.
-- [x] Unmatched residuals logged with bias direction (no size bias).
+**`match_yield_waterfall.png`** — Join A's stage-by-stage yield (reproduces v1's
+99.44%).
 
-**Status: Step 2 complete ✔ — awaiting signal to begin Step 3 (Feature Engineering & Target Setup).**
+**`dual_join_success.png`** — Join A (99.44%) vs Join B (99.68%, records) side by
+side: two independent, high-yield joins feeding the same table.
+
+**`sector_supervision_by_cluster.png`** — school **sector** composition within
+each socioeconomic cluster.
+
+---
+
+## 5. ⚠️ Important finding — sector is *correlated* with cluster, not independent
+
+Before assuming the budget dataset's categoricals are "new, independent"
+information, we checked. The result is **not** what a naively optimistic pipeline
+might hope for:
+
+- **Clusters 1–4** are heavily **Arab / Bedouin / Druze** (cluster 1 is ~69%
+  Bedouin).
+- **Clusters 5–9** are **almost entirely Jewish**.
+
+So `sector` **tracks** the municipal cluster fairly strongly — it is not a clean
+independent axis like the budget *ratios* turned out to be in v1 (recall:
+`budget_per_student` had corr ≈ 0.03 with cluster). This is an honest, useful
+finding to carry forward:
+
+- We flag this **now** so Step 5's VIF / Boruta stage is not a surprise — some
+  budget-file categoricals may show real association with `cluster` and need to
+  be interpreted carefully (association ≠ redundancy, but it is not "free" new
+  information the way the budget ratios were).
+- It is also a **substantively interesting result in its own right** — Israeli
+  educational geography is well known to correlate sector and socioeconomic
+  cluster, and this quantifies it directly in our data.
+
+---
+
+## 6. Step 2 verification checklist
+
+- [x] Join A ported from v1 unchanged; reproduces 99.44% exactly.
+- [x] Join B (NEW): exact `semel` key merge, 98.59% schools / 99.68% records.
+- [x] Both joins are left joins — **no row explosion**, count stays at 69,638.
+- [x] 98.72% of rows carry a full profile from all three sources.
+- [x] Sector-vs-cluster relationship checked and honestly reported (correlated,
+      not independent) — informs Step 5 collinearity handling.
+- [x] Full audit log (`city_mapping_log.csv`) preserved for every city decision.
+- [x] 3/3 plots saved.
+
+**Status: Step 2 complete ✔ — awaiting signal to begin Step 3 (feature engineering).**

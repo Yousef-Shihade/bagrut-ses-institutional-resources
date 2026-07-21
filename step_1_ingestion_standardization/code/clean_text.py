@@ -1,38 +1,40 @@
 """
-clean_text.py — Hebrew string standardisation for Step 1.
+clean_text.py — Hebrew string standardisation for the three datasets (v2 Step 1).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
 Why this module exists
 ----------------------
-The two datasets must eventually be joined on *locality name* (the ``semel``
-codes are NOT compatible: in the Bagrut file ``semel`` is a *school* code, while
-in the CBS file it is a *locality* code — zero overlap). Locality names, however,
-differ between the sources because of:
+The three datasets are joined on two DIFFERENT keys, and each needs its own kind
+of standardisation:
 
-  * trailing / leading whitespace padding (every Bagrut text value),
-  * collapsed multiple internal spaces,
-  * parenthetical qualifiers such as (יישוב) / (קבוצה) / (איחוד) / (מוסד),
-  * Hebrew spelling variants — most importantly the "yod-doubling" convention
-    (קרית -> קריית, הרצליה -> הרצלייה, נהריה -> נהרייה ...).
+* **Bagrut ↔ CBS** must be joined on the *locality name*, because the ``semel``
+  columns are incompatible (in Bagrut ``semel`` is a **school** code; in CBS it is
+  a **locality** code — zero overlap). Locality names differ across the sources by
+  whitespace padding, parenthetical qualifiers such as (יישוב)/(מוסד), and Hebrew
+  spelling variants — above all the "yod-doubling" convention (קרית -> קריית).
+  We therefore build a normalised key (``city_norm`` / ``locality_norm``).
 
-This module produces a normalised key column (``city_norm`` / ``locality_norm``)
-on each dataset while preserving the original text. The actual fuzzy/crosswalk
-matching happens in Step 2; here we only standardise the strings and cache the
-cleaned tables.
+* **Bagrut ↔ Budget** is joined on ``semel``, which IS a school code in both, so
+  it needs no fuzzy text work — only type coercion and de-duplication. Its Hebrew
+  *categorical* columns (district, sector, supervision, ...) still get whitespace
+  trimming so their category labels group correctly.
+
+The actual matching happens in Step 2; here we only standardise and cache.
 """
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
-from io_load import load_bagrut, load_ses, load_config, resolve
+from io_load import load_bagrut, load_budget, load_config, load_ses, resolve
 
-# Gershayim / geresh / quotation marks that show up inside Hebrew names.
+# Gershayim / geresh / quotation marks that appear inside Hebrew names.
 _QUOTES = "\"'״׳‘’“”`"
 _PAREN_RE = re.compile(r"\([^)]*\)")          # (...) including the brackets
 _LEFTOVER_PAREN_RE = re.compile(r"[()\[\]{}]")
@@ -46,10 +48,10 @@ def normalize_hebrew(
     yod_prefix_fixes: dict[str, str] | None = None,
     spelling_map: dict[str, str] | None = None,
 ) -> str | float:
-    """Return a normalised locality string (or ``pd.NA`` for missing input).
+    """Return a normalised locality string (or ``pd.NA``).
 
-    Order of operations matters: structural cleaning (whitespace, parentheses,
-    quotes) happens first so the spelling rules see a canonical string.
+    Order matters: structural cleaning (whitespace, parentheses, quotes) runs
+    first so the spelling rules always see a canonical string.
     """
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return pd.NA
@@ -88,89 +90,126 @@ def _rules_from_cfg(cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def clean_string_column(s: pd.Series, cfg: dict[str, Any]) -> pd.Series:
-    """Vectorised application of :func:`normalize_hebrew` to a Series."""
-    rules = _rules_from_cfg(cfg)
-    return s.map(lambda v: normalize_hebrew(v, **rules))
+    """Vectorised application of :func:`normalize_hebrew`."""
+    return s.map(lambda v: normalize_hebrew(v, **_rules_from_cfg(cfg)))
 
 
 def strip_text_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
-    """Light strip+collapse on listed text columns (keeps original semantics).
-
-    Used for the Bagrut ``subject`` / ``school`` columns, which only need the
-    trailing-space padding removed (no spelling normalisation).
-    """
+    """Light strip+collapse on listed text columns (no spelling normalisation)."""
     out = df.copy()
     for col in columns:
         if col in out.columns:
-            out[col] = (
-                out[col].astype("string").str.replace(_WS_RE, " ", regex=True).str.strip()
-            )
+            out[col] = (out[col].astype("string")
+                        .str.replace(_WS_RE, " ", regex=True).str.strip())
     return out
 
 
 # --------------------------------------------------------------------------- #
-# Dataset-level cleaning
+# Dataset-level cleaning                                                       #
 # --------------------------------------------------------------------------- #
 def clean_bagrut(df: pd.DataFrame, cfg: dict[str, Any]) -> pd.DataFrame:
-    """Strip the padded text columns and add a normalised ``city_norm`` key."""
-    text_cols = cfg["bagrut"]["text_columns"]
-    city_col = cfg["bagrut"]["city_column"]
-
-    out = strip_text_columns(df, text_cols)
-    out["city_norm"] = clean_string_column(out[city_col], cfg)
+    """Strip padded text columns and add the normalised ``city_norm`` join key."""
+    out = strip_text_columns(df, cfg["bagrut"]["text_columns"])
+    out["city_norm"] = clean_string_column(out[cfg["bagrut"]["city_column"]], cfg)
     return out
 
 
 def clean_ses(df: pd.DataFrame, cfg: dict[str, Any]) -> pd.DataFrame:
-    """Add a normalised ``locality_norm`` key to the CBS table."""
+    """Add the normalised ``locality_norm`` join key to the CBS table."""
     name_col = cfg["ses"]["name_column"]
     out = df.copy()
-    out[name_col] = out[name_col].astype("string").str.replace(_WS_RE, " ", regex=True).str.strip()
+    out[name_col] = (out[name_col].astype("string")
+                     .str.replace(_WS_RE, " ", regex=True).str.strip())
     out["locality_norm"] = clean_string_column(out[name_col], cfg)
     return out
 
 
-def run(cfg: dict[str, Any] | None = None) -> dict[str, pd.DataFrame]:
-    """Load -> clean both datasets and cache them to ``outputs/data``.
+def _parse_nurture_quintile(value: Any) -> float:
+    """Extract the UPPER-SCHOOL nurture quintile (1-5) from the raw CBS-style string.
 
-    Returns the cleaned DataFrames so callers (e.g. the visualiser / orchestrator)
-    can reuse them without re-reading from disk.
+    The Ministry encodes several education stages in one cell, e.g.
+        "חטיבה ביניים 5  חטיבה עליונה 5"  -> upper-school quintile 5
+        "חטיבה עליונה 1"                  -> 1
+    Bagrut is an UPPER-school (חטיבה עליונה) outcome, so we take that stage's
+    quintile; if it is absent we fall back to any digit present in the string.
+    Higher = more advantaged (matching the CBS convention).
     """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return np.nan
+    text = _WS_RE.sub(" ", str(value)).strip()
+    m = re.search(r"חטיבה עליונה\s*(\d)", text)
+    if m:
+        return float(m.group(1))
+    m = re.search(r"(\d)", text)
+    return float(m.group(1)) if m else np.nan
+
+
+def clean_budget(df: pd.DataFrame, cfg: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Standardise the budget table and key it on ``semel``.
+
+    * Coerce the configured numeric columns (Excel yields mixed str/float).
+    * Trim the Hebrew categorical labels so categories group correctly.
+    * Parse the upper-school nurture quintile out of its composite string.
+    * De-duplicate on ``semel`` (defensive: this extract is already 1 row/school).
+    """
+    b = cfg["budget"]
+    out = df.copy()
+
+    for col in b["numeric_columns"]:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce")
+
+    out = strip_text_columns(out, b["text_columns"])
+
+    if "nurture_quintile_raw" in out.columns:
+        out["nurture_quintile"] = out["nurture_quintile_raw"].map(_parse_nurture_quintile)
+
+    # Key integrity: drop rows without a school code, then de-duplicate.
+    out = out[out["semel"].notna()].copy()
+    out["semel"] = out["semel"].astype(int)
+    n_before = len(out)
+    out = out.drop_duplicates(subset=["semel"], keep="first").reset_index(drop=True)
+
+    report = {
+        "rows": len(out),
+        "duplicate_semel_dropped": n_before - len(out),
+        "unique_semel": int(out["semel"].nunique()),
+        "nurture_parsed_pct": (round(100 * out["nurture_quintile"].notna().mean(), 2)
+                               if "nurture_quintile" in out.columns else None),
+    }
+    return out, report
+
+
+# --------------------------------------------------------------------------- #
+# Orchestrated run                                                             #
+# --------------------------------------------------------------------------- #
+def run(cfg: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Load -> clean all THREE datasets and cache them to ``data/``."""
     cfg = cfg or load_config()
 
     bag_clean = clean_bagrut(load_bagrut(cfg), cfg)
     ses_clean = clean_ses(load_ses(cfg), cfg)
+    bud_raw, bud_ingest = load_budget(cfg)
+    bud_clean, bud_report = clean_budget(bud_raw, cfg)
 
     out_dir = resolve(cfg["paths"]["out_data"])
     out_dir.mkdir(parents=True, exist_ok=True)
-    bag_path = out_dir / "bagrut_clean.csv"
-    ses_path = out_dir / "ses_clean.csv"
-
-    # utf-8-sig so the cached CSVs open cleanly in Excel with Hebrew intact.
-    bag_clean.to_csv(bag_path, index=False, encoding="utf-8-sig")
-    ses_clean.to_csv(ses_path, index=False, encoding="utf-8-sig")
-
-    return {
-        "bagrut": bag_clean,
-        "ses": ses_clean,
-        "bagrut_path": bag_path,
-        "ses_path": ses_path,
+    paths = {
+        "bagrut": out_dir / "bagrut_clean.csv",
+        "ses": out_dir / "ses_clean.csv",
+        "budget": out_dir / "budget_clean.csv",
     }
+    # utf-8-sig so the cached CSVs open cleanly in Excel with Hebrew intact.
+    bag_clean.to_csv(paths["bagrut"], index=False, encoding="utf-8-sig")
+    ses_clean.to_csv(paths["ses"], index=False, encoding="utf-8-sig")
+    bud_clean.to_csv(paths["budget"], index=False, encoding="utf-8-sig")
+
+    return {"bagrut": bag_clean, "ses": ses_clean, "budget": bud_clean,
+            "paths": paths, "budget_ingest": bud_ingest, "budget_report": bud_report}
 
 
 if __name__ == "__main__":
-    cfg = load_config()
-    res = run(cfg)
-    bag, ses = res["bagrut"], res["ses"]
-    print(f"[clean_text] bagrut clean: {bag.shape} -> {res['bagrut_path']}")
-    print(f"[clean_text] ses    clean: {ses.shape} -> {res['ses_path']}")
-    # Show a few before/after examples of the normalisation.
-    raw_bag = load_bagrut(cfg)
-    sample = (
-        pd.DataFrame({"raw": raw_bag["city"], "norm": bag["city_norm"]})
-        .drop_duplicates()
-        .head(6)
-    )
-    print("[clean_text] sample city normalisation:")
-    for _, r in sample.iterrows():
-        print(f"    {r['raw']!r:35s} -> {r['norm']!r}")
+    res = run()
+    print(f"[clean_text] bagrut {res['bagrut'].shape} -> {res['paths']['bagrut'].name}")
+    print(f"[clean_text] ses    {res['ses'].shape} -> {res['paths']['ses'].name}")
+    print(f"[clean_text] budget {res['budget'].shape} -> {res['paths']['budget'].name}")

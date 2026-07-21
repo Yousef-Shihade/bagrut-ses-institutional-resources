@@ -1,95 +1,125 @@
 """
-run_step1.py — Step 1 orchestrator (Ingestion & Text Standardisation).
+run_step1.py — Step 1 orchestrator (v2: ingestion & standardisation, 3 datasets).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
-Runs the full Step-1 pipeline end to end and prints a verification summary:
+Flow:
+    load + clean Bagrut / CBS / Budget  ->  cache 3 CSVs  ->  5 diagnostic plots
+    ->  verification summary (shapes, keys, coverage, join feasibility)
 
-    load -> clean (cache CSVs) -> visualise (4 PNGs) -> report
-
-Usage (from anywhere):
-    python src/run_step1.py
+Usage:
+    python code/run_step1.py
 """
 from __future__ import annotations
 
 import sys
+import warnings
 from pathlib import Path
 
-# Make sibling modules importable when run as a plain script.
+warnings.filterwarnings("ignore")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pandas as pd  # noqa: E402
 
 import clean_text  # noqa: E402
-import visualize  # noqa: E402
-from io_load import ROOT, load_bagrut, load_config, resolve  # noqa: E402
+import visualize as viz  # noqa: E402
+from io_load import load_config, resolve  # noqa: E402
 
 
-def _hr(char: str = "=") -> str:
-    return char * 70
+def _hr(c: str = "=") -> str:
+    return c * 78
 
 
 def main() -> None:
     cfg = load_config()
+    graphs = resolve(cfg["paths"]["out_graphs"])
 
     print(_hr())
-    print("STEP 1 — INGESTION & TEXT STANDARDISATION")
+    print("STEP 1 — INGESTION & STANDARDIZATION (v2: THREE DATASETS)")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
 
-    # --- 1. Load + clean (caches outputs/data/*.csv) ----------------------- #
-    raw_bagrut = load_bagrut(cfg)
+    # ---------------- load + clean ---------------------------------------- #
     res = clean_text.run(cfg)
-    bag, ses = res["bagrut"], res["ses"]
+    bag, ses, bud = res["bagrut"], res["ses"], res["budget"]
+    ing, brep = res["budget_ingest"], res["budget_report"]
 
-    # --- 2. Visualise ------------------------------------------------------ #
-    plot_paths = visualize.run(bag, ses, cfg)
+    print("\n[1] DATASET 1 — Bagrut grades")
+    print(f"    shape {bag.shape} | schools(semel) {bag['semel'].nunique():,} | "
+          f"cities {bag['city_norm'].nunique():,} | years {sorted(bag['year'].dropna().unique())}")
+    print(f"    encoding utf-8-sig (BOM stripped); text columns trimmed; city_norm key built")
 
-    # --- 3. Verification summary ------------------------------------------ #
-    grade_col = cfg["bagrut"]["grade_column"]
-    takers_col = cfg["bagrut"]["takers_column"]
-    miss = raw_bagrut[grade_col].isna()
+    print("\n[2] DATASET 2 — CBS socioeconomic index")
+    print(f"    shape {ses.shape} | localities {ses['locality_norm'].nunique():,}")
+    print(f"    cluster present {ses['cluster'].notna().mean()*100:.1f}% | "
+          f"'..' placeholders -> NaN")
 
-    print("\n[1] DATA SHAPES")
-    print(f"    Bagrut (raw/clean) : {raw_bagrut.shape} -> {bag.shape}")
-    print(f"    SES    (clean)     : {ses.shape}")
-    print(f"    Bagrut columns     : {list(bag.columns)}")
-    print(f"    SES    columns     : {list(ses.columns)}")
+    print("\n[3] DATASET 3 — Ministry of Education budget  (NEW in v2)")
+    print(f"    workbook: {ing['columns_in_workbook']} columns, {ing['rows_raw']:,} rows "
+          f"(styles.xml colour error bypassed)")
+    print(f"    totals rows dropped: {ing['totals_rows_dropped']} | "
+          f"columns resolved: {ing['columns_resolved']}/{ing['columns_requested']}")
+    if ing["columns_missing"]:
+        print(f"    [!] NOT FOUND in workbook: {ing['columns_missing']}")
+    print(f"    excluded up front (verified all-zero): {ing['known_empty_excluded']}")
+    print(f"    clean shape {bud.shape} | unique semel {brep['unique_semel']:,} | "
+          f"dup dropped {brep['duplicate_semel_dropped']}")
+    print(f"    nurture quintile parsed for {brep['nurture_parsed_pct']}% of institutions")
 
-    print("\n[2] TARGET MISSINGNESS (grade)")
-    print(f"    missing            : {miss.sum():,} / {len(raw_bagrut):,} "
-          f"({miss.mean()*100:.1f}%)")
-    print(f"    median takers | missing grade : {raw_bagrut.loc[miss, takers_col].median():.0f}")
-    print(f"    median takers | present grade : {raw_bagrut.loc[~miss, takers_col].median():.0f}")
+    # ---------------- join feasibility (preview of Step 2) ----------------- #
+    print("\n[4] JOIN FEASIBILITY (executed in Step 2)")
+    bag_cities = set(bag["city_norm"].dropna())
+    ses_cities = set(ses["locality_norm"].dropna())
+    hit = len(bag_cities & ses_cities)
+    rec_hit = bag["city_norm"].isin(ses_cities).mean() * 100
+    print(f"    Bagrut <-> CBS   on normalised locality NAME:")
+    print(f"        {hit}/{len(bag_cities)} distinct cities match exactly "
+          f"({rec_hit:.1f}% of exam records) -> fuzzy stages close the rest in Step 2")
 
-    print("\n[3] TEXT STANDARDISATION CHECK")
-    n_pad_before = raw_bagrut["city"].astype(str).str.endswith(" ").sum()
-    n_pad_after = bag["city_norm"].astype(str).str.endswith(" ").sum()
-    print(f"    Bagrut cities w/ trailing space : {n_pad_before:,} -> {n_pad_after:,}")
-    print(f"    unique city_norm keys (bagrut)  : {bag['city_norm'].nunique():,}")
-    print(f"    unique locality_norm keys (ses) : {ses['locality_norm'].nunique():,}")
-    overlap = set(bag["city_norm"].dropna()) & set(ses["locality_norm"].dropna())
-    cov = bag["city_norm"].isin(overlap).mean() * 100
-    print(f"    normalised exact-key overlap    : {len(overlap)} localities "
-          f"({cov:.1f}% of bagrut records)  [full matching is Step 2]")
+    bag_semels = set(pd.to_numeric(bag["semel"], errors="coerce").dropna().astype(int))
+    bud_semels = set(bud["semel"])
+    ov = len(bag_semels & bud_semels)
+    print(f"    Bagrut <-> Budget on SCHOOL CODE (semel):")
+    print(f"        {ov:,}/{len(bag_semels):,} schools match exactly "
+          f"({100*ov/len(bag_semels):.1f}%) -> clean key join, no fuzzy needed")
 
-    print("\n[4] CLUSTER SUMMARY (ses)")
-    print(f"    ranked localities  : {int(ses['cluster'].notna().sum())}")
-    print(f"    unranked ('..')    : {int(ses['cluster'].isna().sum())}")
+    # ---------------- school-level attribute coverage ---------------------- #
+    print("\n[5] NEW school-level attributes from Dataset 3")
+    for col in ["district", "sector", "supervision", "legal_status",
+                "education_stage", "nurture_quintile", "avg_class_size"]:
+        if col in bud.columns:
+            cov = bud[col].notna().mean() * 100
+            nun = bud[col].nunique()
+            print(f"    {col:20s} coverage {cov:5.1f}%   distinct {nun}")
 
-    print("\n[5] ARTEFACTS WRITTEN")
-    print(f"    interim data dir   : {resolve(cfg['paths']['out_data'])}")
-    print(f"      - {Path(res['bagrut_path']).name}")
-    print(f"      - {Path(res['ses_path']).name}")
-    print(f"    graphs dir         : {resolve(cfg['paths']['out_graphs'])}")
-    for p in plot_paths:
-        size_kb = Path(p).stat().st_size / 1024
-        print(f"      - {Path(p).name:32s} ({size_kb:6.1f} KB)")
+    # ---------------- plots ------------------------------------------------ #
+    print("\n[6] PLOTS")
+    paths = [
+        viz.plot_three_dataset_overview(bag, ses, bud, graphs),
+        viz.plot_budget_column_coverage(bud, cfg, graphs),
+        viz.plot_ses_cluster_frequency(ses, graphs),
+        viz.plot_target_missingness(bag, cfg, graphs),
+        viz.plot_budget_school_profile(bud, cfg, graphs),
+    ]
+    for p in paths:
+        print(f"    - {p.name:34s} ({p.stat().st_size/1024:6.1f} KB)")
+
+    # ---------------- outputs ---------------------------------------------- #
+    print("\n[7] CACHED OUTPUTS")
+    for k in ("bagrut", "ses", "budget"):
+        p = res["paths"][k]
+        print(f"    {p.name:22s} ({p.stat().st_size/1024/1024:5.2f} MB)")
 
     print("\n" + _hr())
-    print("STEP 1 COMPLETE ✔   (awaiting signal for Step 2: Merging)")
+    print("STEP 1 COMPLETE ✔  — three datasets ingested, standardised, cached.")
     print(_hr())
 
 

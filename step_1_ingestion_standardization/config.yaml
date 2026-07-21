@@ -1,89 +1,187 @@
 # =============================================================================
-# BagrutProject — Central Configuration
-# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# BagrutProject v2 — Step 1 Configuration
+# Ingestion & Standardization of THREE datasets
+# Project: Predicting Bagrut Success from Municipal Socioeconomics and
+#          School-Level Institutional Resources
 # Authors: Yousef Shehade & Shada Esawi
 #
-# This is a self-contained STEP folder. All paths are relative to this folder
-# (the one containing this config.yaml). Each code/ module resolves them against
-# that folder, so scripts can be run from anywhere. The shared raw datasets live
-# one level up at the project root, hence the "../datasets/..." prefix.
+# Self-contained STEP folder: all paths are relative to this folder (the one
+# containing this config.yaml). Shared raw data lives at the project root, hence
+# the "../datasets/..." prefix.
+#
+# v2 CHANGE: the Ministry-of-Education budget workbook is ingested HERE, as a
+# first-class third dataset, instead of being bolted on at the end (v1 Step 6).
 # =============================================================================
 
 project:
-  title: "Predicting Israeli High School Bagrut Success Using Socioeconomic Data"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
     - "Yousef Shehade"
     - "Shada Esawi"
 
-# Global random seed — reused everywhere (imputation, sampling, models) so every
-# stage of the pipeline is reproducible.
 seed: 42
 
 paths:
-  raw_bagrut: "../datasets/israel_bagrut_averages.csv"   # shared raw data at project root
-  raw_ses:    "../datasets/downloadFile.xlsx"            # shared raw data at project root
-  out_data:   "data"                                     # this step's interim CSVs
-  out_graphs: "graphs"                                   # this step's PNG plots
+  raw_bagrut: "../datasets/israel_bagrut_averages.csv"
+  raw_ses:    "../datasets/downloadFile.xlsx"
+  raw_budget: "../datasets/school_budget.xlsx"
+  out_data:   "data"
+  out_graphs: "graphs"
 
 # -----------------------------------------------------------------------------
 # Dataset 1 — Bagrut grades (israel_bagrut_averages.csv)
 # -----------------------------------------------------------------------------
 bagrut:
-  # The file carries a UTF-8 BOM. Reading it as plain "utf-8" leaves a stray
-  # ﻿ glued to the first header ("grade" -> "﻿grade"), silently
-  # breaking every column lookup. "utf-8-sig" strips the BOM correctly.
+  # UTF-8 BOM: reading as plain "utf-8" glues a BOM onto the first header
+  # ("grade" -> "﻿grade"), silently breaking every lookup. utf-8-sig strips it.
   encoding: "utf-8-sig"
   text_columns: ["subject", "city", "school"]   # padded with trailing spaces
   city_column: "city"
   grade_column: "grade"
   takers_column: "takers"
   studyunits_column: "studyunits"
+  semel_column: "semel"
 
 # -----------------------------------------------------------------------------
 # Dataset 2 — CBS socioeconomic index (downloadFile.xlsx, sheet "גיליון1")
 # -----------------------------------------------------------------------------
 ses:
   sheet: "גיליון1"
-  # The first 10 physical rows (index 0-9) are blank/metadata. The real header
-  # is on row index 10; data begins at index 12 (row 11 is blank and is removed
-  # by the drop-empty-rows step).
-  header_row: 10
-  # Tokens used by CBS for unranked localities -> coerce to NaN.
-  na_tokens: ["..", ".", "-", "–"]
-  # Original Hebrew headers -> canonical English names used throughout the code.
+  header_row: 10               # rows 0-9 are metadata/blank; real header at 10
+  na_tokens: ["..", ".", "-", "–"]   # CBS "unranked" placeholders -> NaN
   rename:
     "סמל היישוב":  "locality_code"
     "שם יישוב":    "locality_name"
     "צורת יישוב":  "locality_form"
     "אוכלוסייה":   "population"
     "ערך מדד":     "index_value"
-    "אשכול":       "cluster"            # matched by prefix (header has trailing "(מ-1 עד 10)")
+    "אשכול":       "cluster"     # prefix match (header has trailing "(מ-1 עד 10)")
   numeric_columns: ["population", "index_value", "cluster"]
   name_column: "locality_name"
 
 # -----------------------------------------------------------------------------
-# Subject definitions — used now for plots/labels and later for the
-# subject-specific school-level features (math_avg_grade, english_avg_grade,
-# math_5unit_participation, english_5unit_participation, ...).
+# Dataset 3 — Ministry of Education school budget report (NEW in v2)
+# -----------------------------------------------------------------------------
+# The workbook ships a malformed styles.xml (non-aRGB theme colours) that makes a
+# vanilla openpyxl.load_workbook raise "Colors must be aRGB hex values". io_load
+# monkeypatches openpyxl's RGB descriptor with a lenient validator BEFORE opening.
+# Header is on row 0; row 1 is a grand-totals row (label "סה"כ") and is dropped.
+# Hebrew headers carry stray double spaces, so they are whitespace-normalised and
+# matched EXACTLY (not by prefix — "סה"כ תקציב שכר ותשלומים" would otherwise also
+# match the "- ללא קורונה" variant).
+budget:
+  sheet: "MyWorkSheet-1"
+  header_row: 0
+  totals_label: 'סה"כ'          # grand-totals row to drop
+  key_column: "semel"
+  rename:
+    # --- identifiers ---
+    "סמל מוסד":                                    "semel"
+    "שם מוסד":                                     "school_name_budget"
+    "שנת לימודים":                                 "budget_year"
+    # --- school characteristics (100% coverage; NEW feature space) ---
+    "שם מחוז":                                     "district"
+    "שם רשות":                                     "authority_name"
+    "סמל רשות":                                    "authority_code"
+    "מגזר":                                        "sector"
+    "סוג פיקוח":                                   "supervision"
+    "מעמד משפטי":                                  "legal_status"
+    "שלב חינוך במוסד":                             "education_stage"
+    "סוג חינוך מוסד":                              "education_type"
+    "חמשון טיפוח":                                 "nurture_quintile_raw"
+    "חמשון לחישוב ממוצעים":                        "strength_band"
+    # --- enrolment (denominators) ---
+    "מספר תלמידים בפועל חינוך רגיל":               "students_regular"
+    "מספר תלמידים בפועל חינוך מיוחד":              "students_special"
+    "מס' כיתות חינוך רגיל":                        "classes_regular"
+    "ממוצע תל בכיתה - ללא חינוך מיוחד כיתות,מוסדות": "avg_class_size"
+    # --- budget components (numerators) ---
+    'סה"כ תקציב שכר ותשלומים':                     "budget_total"
+    "עלות שעות הוראה":                             "cost_teaching"
+    'שכ"ל':                                        "cost_tuition"
+    "שירותי היקף":                                 "cost_perimeter"
+    "פרויקטים והעברות לרשויות מקומיות ובעלויות":   "cost_projects"
+    "רכישות והקצבות":                              "cost_purchases"
+    "תקציב הסעות":                                 "cost_transport"
+    "שעות פרטניות":                                "hours_private"
+  numeric_columns:
+    - "semel"
+    - "authority_code"
+    - "students_regular"
+    - "students_special"
+    - "classes_regular"
+    - "avg_class_size"
+    - "budget_total"
+    - "cost_teaching"
+    - "cost_tuition"
+    - "cost_perimeter"
+    - "cost_projects"
+    - "cost_purchases"
+    - "cost_transport"
+    - "hours_private"
+  text_columns:
+    - "school_name_budget"
+    - "district"
+    - "authority_name"
+    - "sector"
+    - "supervision"
+    - "legal_status"
+    - "education_stage"
+    - "education_type"
+    - "nurture_quintile_raw"
+    - "strength_band"
+  # Columns verified to be entirely zero in this extract -> excluded up front so
+  # they never masquerade as usable features (documented, not silently dropped).
+  known_empty_columns:
+    - 'תקציב גפ"ן'          # Gefen budget: grand-total = 0 across the whole file
+    - "שעות הדרכה"          # guidance hours: 0% nonzero among our schools
+
+# -----------------------------------------------------------------------------
+# Display labels — Hebrew category -> English, for PLOTS ONLY.
+# matplotlib renders right-to-left Hebrew reversed ("יהודי" -> "ידוהי"), so every
+# chart uses these English labels. The underlying data keeps the Hebrew values.
+# -----------------------------------------------------------------------------
+display_labels:
+  sector:
+    "יהודי":      "Jewish"
+    "ערבי":       "Arab"
+    "בדואי":      "Bedouin"
+    "דרוזי":      "Druze"
+    "צרקסי":      "Circassian"
+  supervision:
+    "ממלכתי":      "State"
+    "ממלכתי דתי":  "State-religious"
+    "חרדי":        "Haredi"
+  district:
+    "ירושלים":    "Jerusalem"
+    "תל אביב":    "Tel Aviv"
+    "מרכז":       "Center"
+    "צפון":       "North"
+    "דרום":       "South"
+    "חיפה":       "Haifa"
+    "התיישבותי":  "Settlement"
+  legal_status:
+    "רשמי":            "Official"
+    "מוכר":            "Recognised"
+    "תרבותי-ייחודי":   "Culturally-unique"
+    "פטור":            "Exempt"
+
+# -----------------------------------------------------------------------------
+# Subject definitions
 # -----------------------------------------------------------------------------
 subjects:
-  advanced_units: 5            # a "5-unit" exam == the advanced track
+  advanced_units: 5
   core:
     math:    "מתמטיקה"
     english: "אנגלית"
 
 # -----------------------------------------------------------------------------
-# Hebrew text-normalisation rules (applied in clean_text.py)
+# Hebrew text-normalisation rules (clean_text.py)
 # -----------------------------------------------------------------------------
 text_cleaning:
-  # Strip parenthetical qualifiers such as (יישוב) / (קבוצה) / (איחוד) / (מוסד)
-  # that appear on the locality side but not on the school side.
   strip_parentheses: true
-  # Generic yod-doubling: the "קרית" prefix is officially "קריית".
   yod_prefix_fixes:
     "קרית": "קריית"
-  # Documented per-name spelling variants (Bagrut spelling -> CBS spelling).
-  # Applied as exact, whole-string replacements after generic normalisation.
   spelling_map:
     "הרצליה": "הרצלייה"
     "נהריה": "נהרייה"

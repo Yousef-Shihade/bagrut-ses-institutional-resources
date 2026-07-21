@@ -1,14 +1,15 @@
-# 📊 Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# 📊 Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 
-> An end-to-end, empirical data-science pipeline analysing the **structural
-> relationship between municipal socioeconomics and secondary-school
-> matriculation (Bagrut) outcomes in Israel** — from raw Hebrew government data
-> to cross-validated, explainable machine-learning models.
+> An end-to-end, empirical data-science pipeline testing whether **municipal
+> socioeconomic status and school-level institutional resources — together —
+> predict Israeli high-school matriculation (Bagrut) outcomes** — from three
+> raw Hebrew/administrative data sources to cross-validated, explainable
+> machine-learning models.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Python](https://img.shields.io/badge/Python-3.11-blue.svg)
 ![scikit--learn](https://img.shields.io/badge/scikit--learn-1.2.2-orange.svg)
-![Pipeline](https://img.shields.io/badge/pipeline-6%20stages-success.svg)
+![Pipeline](https://img.shields.io/badge/pipeline-5%20stages-success.svg)
 ![Status](https://img.shields.io/badge/status-complete-brightgreen.svg)
 
 **Authors:** Yousef Shihade & Shada Essawi · *Data Science Lab — Final Project*
@@ -17,59 +18,69 @@
 
 ## 🎯 Research Questions
 
-1. **Main:** Can a municipality's socioeconomic status *alone* predict a high
-   school's average performance and advanced-track selection?
-2. **Secondary:** Which academic subjects are most **resilient** to socioeconomic
-   disparity, and are there low-SES schools that consistently match elite results?
+1. **Main:** Can a municipality's socioeconomic status **and** a school's own
+   institutional resources — together — predict a high school's average
+   performance and advanced-track selection?
+2. **Secondary A:** Which academic subjects are most **resilient** to
+   socioeconomic disparity, and are there low-SES schools that consistently
+   match elite results?
+3. **Secondary B:** Does institutional funding explain outcome variance that
+   municipal wealth alone cannot?
 
 We model four school-level targets: **average Bagrut grade** and **5-unit
 (advanced-track) participation rate**, each for **Mathematics** and **English**.
+
+> **Note on project history:** an earlier version of this pipeline answered a
+> narrower question — *"can municipal SES **alone** predict Bagrut success?"*
+> — using only the Bagrut and CBS datasets, with the budget dataset added as a
+> final extension. Following methodological feedback, the project was rebuilt
+> so all **three** datasets are integrated **from Step 1**. That original
+> pipeline and its results are preserved for reference in
+> [`archive/v1_two_dataset_pipeline/`](archive/v1_two_dataset_pipeline/README.md).
 
 ---
 
 ## 🏗 Pipeline Architecture
 
-The project is organised as **six isolated, self-contained, sequential stages**.
-Each folder owns its own `README.md`, `config.yaml`, `code/`, data, and graphs,
-and consumes the previous stage's output.
+The project is organised as **five isolated, self-contained, sequential
+stages**. Each folder owns its own `README.md`, `config.yaml`, `code/`, data,
+and graphs, and consumes the previous stage's output.
 
 ```
-       datasets/  (raw Bagrut .csv + CBS .xlsx + Ministry budget .xlsx — git-ignored)
+   datasets/  (raw Bagrut .csv + CBS .xlsx + Ministry budget .xlsx — git-ignored)
                  │
                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 1 · Ingestion & Hebrew Text Standardization                    │
-│   utf-8-sig BOM, CBS header offsets, whitespace/yod normalization     │
+│ STEP 1 · Ingestion & Standardization — ALL THREE DATASETS             │
+│   utf-8-sig BOM · CBS header offset · openpyxl colour-patch for budget │
+│   · Hebrew normalisation · single-year budget snapshot documented     │
 └─────────────────────────────────────────────────────────────────────┘
-                 │   bagrut_clean.csv · ses_clean.csv
+                 │   bagrut_clean.csv · ses_clean.csv · budget_clean.csv
                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 2 · Multi-Stage Data Merging & Integration                      │
-│   exact → structural → crosswalk → fuzzy   →  99.44% match, no leak   │
+│ STEP 2 · Three-Way Merge                                              │
+│   Join A: Bagrut↔CBS fuzzy name (99.44%) · Join B: Bagrut↔Budget      │
+│   exact semel key (99.68%) → one consolidated record-level table      │
 └─────────────────────────────────────────────────────────────────────┘
-                 │   merged_bagrut_ses.csv
+                 │   merged_three_datasets.csv
                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 3 · Feature Engineering & Target Setup                          │
-│   re-grain to school × year · takers-weighted grades · 5-unit rates   │
+│ STEP 3 · Feature Engineering & Target Setup                           │
+│   re-grain to school × year · 4 targets · 8 budget ratios + school-   │
+│   level categoricals → candidate feature space 4 → 23                 │
 └─────────────────────────────────────────────────────────────────────┘
                  │   school_level_features_targets.csv
                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 4 · Preprocessing, Outliers & MICE Imputation Experiment        │
-│   MICE vs median · Isolation Forest + LOF · 2 exploratory questions   │
+│ STEP 4 · Preprocessing, Outliers & MICE Robustness                    │
+│   MICE × 25 independent trials · Isolation Forest + LOF · 2 questions │
 └─────────────────────────────────────────────────────────────────────┘
                  │   cleaned_modeling_ready.csv
                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 5 · ML Tournament & Explainability                              │
-│   GroupKFold(semel) · VIF · Boruta · Ridge/SGD/RF/HGB · SHAP          │
-└─────────────────────────────────────────────────────────────────────┘
-                 │   2-dataset leaderboard (SES only)
-                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 6 · Institutional Budget Integration & Performance Boost        │
-│   3rd dataset · semel join · dual budget/student · re-run · +0.132 R² │
+│ STEP 5 · Modeling, Ablation & Explainability                          │
+│   iterative VIF · Boruta (49 candidate cols) · Ridge/SGD/RF/HGB ·      │
+│   SES-only vs SES+Budget ablation · SHAP                              │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -79,129 +90,136 @@ and consumes the previous stage's output.
 BagrutProject/
 ├── README.md  ·  LICENSE  ·  requirements.txt
 ├── datasets/                                  # raw inputs (git-ignored)
+├── archive/v1_two_dataset_pipeline/           # superseded v1 pipeline (reference)
 ├── step_1_ingestion_standardization/
 ├── step_2_data_merging_integration/
 ├── step_3_feature_engineering_target_setup/
 ├── step_4_preprocessing_outliers_imputation_experiment/
-├── step_5_predictive_modeling_explainability/
-└── step_6_budget_integration_performance_boost/
+└── step_5_predictive_modeling_explainability/
 ```
 
 ---
 
 ## 🧪 Key Experimental Footprints
 
-**MICE imputation experiment (Step 4).** Following the rubric, we masked 8 % of a
-fully-populated feature (the CBS socioeconomic index) and reconstructed it with
-**MICE** (`IterativeImputer`) versus a median baseline:
+**MICE robustness experiment (Step 4).** Following feedback that a single
+masked-imputation run isn't sufficient evidence, we repeated the "mask 8% and
+reconstruct" test **25 times** with independent random seeds:
 
-| Method | RMSE | MAE | **R²** |
-|---|--:|--:|--:|
-| **MICE (IterativeImputer)** | **0.209** | **0.143** | **0.949** |
-| Median baseline | 0.928 | 0.782 | −0.003 |
+| Method | R² (mean ± std across 25 runs) | RMSE (mean ± std) |
+|---|---|---|
+| **MICE (IterativeImputer)** | **0.9536 ± 0.0060** | 0.199 ± 0.016 |
+| Median baseline | −0.0046 ± 0.0059 | 0.927 ± 0.037 |
 
-➡️ **MICE cuts reconstruction error by ~77 %** (R² **0.949** vs ~0), because it
-exploits the structure between features while the median ignores it.
+➡️ **MICE beat the median baseline on all 25/25 runs**, with a standard
+deviation of just 0.6% of the mean — proof the result is stable, not a lucky
+draw.
 
-**Other footprints:** 99.44 % Hebrew locality match rate (Step 2) · Isolation
-Forest + LOF outlier consensus (Step 4) · 87/460 (18.9 %) low-SES "overachiever"
-schools identified (Step 4).
+**Other footprints:** 99.44% Hebrew locality match (Join A) / 99.68% exact
+`semel` match (Join B) in Step 2 · Isolation Forest + LOF consensus of 49
+outliers (Step 4) · 87/460 (18.9%) low-SES "overachiever" schools identified
+(Step 4).
 
 ---
 
 ## 🏆 Modeling Leaderboard
 
-Final **cross-validated** performance (5-fold **`GroupKFold` grouped by school**
-so a school's multiple years never leak across folds). Champion = **tuned
-HistGradientBoosting**, which won every target.
+Final **cross-validated** performance (5-fold **`GroupKFold` grouped by
+school** so a school's multiple years never leak across folds). Champion =
+**tuned HistGradientBoosting** on the full Boruta-selected SES+Budget feature
+set, which won every target.
 
-| 🎯 Target | Type | **R²** | RMSE | MAE |
-|---|---|--:|--:|--:|
-| `english_5unit_participation` | participation | **0.192** | 0.245 | 0.194 |
-| `english_avg_grade` | grade | **0.150** | 5.986 | 4.535 |
-| `math_avg_grade` | grade | 0.094 | 7.188 | 5.600 |
-| `math_5unit_participation` | participation | 0.056 | 0.101 | 0.080 |
+| 🎯 Target | R² | RMSE | MAE |
+|---|--:|--:|--:|
+| **english_5unit_participation** | **0.545** | 0.178 | 0.129 |
+| `math_avg_grade` | 0.431 | 5.274 | 4.060 |
+| `english_avg_grade` | 0.428 | 4.584 | 3.502 |
+| `math_5unit_participation` | 0.421 | 0.079 | 0.056 |
 
-> 🥇 **HistGradientBoosting** (tuned via `RandomizedSearchCV`) beat Ridge, the
-> SGD linear-SVM, and RandomForest across all four targets. Deep RandomForest
-> overfit (negative R²); the SES→outcome surface is smooth, so regularised models win.
+> 🥇 Every model family scores **positive R² across the board** on the richer
+> v2 feature space (in the earlier SES-only design, RandomForest went
+> negative on just 4 features).
 
 ---
 
-## 🚀 Breaking the Ceiling — Step 6 Budget Integration
+## 🎯 Ablation Study — Does Institutional Funding Add Information Beyond SES?
 
-The Step-5 leaderboard above is the answer to *"SES alone."* **Step 6 then adds a
-third dataset** — a Ministry of Education **school-budget report** — joined strictly
-on the school code `semel`, and engineers **two complementary per-student spend
-ratios** (comprehensive grand-total + targeted instructional teaching cost; the
-empty *Gefen* column is dropped). Re-running the **identical** tuned-HGB tournament
-on the same budget-matched rows isolates the budget's marginal effect:
+For every target we tune HistGradientBoosting **twice on identical rows**:
+once on the original SES-only feature set (`cluster`, `log_population`,
+`locality_form`, `year`) and once on whatever **Boruta** selected from the
+full SES+budget candidate space (49 encoded columns). Same rows, same
+GroupKFold folds, same tuning protocol — so the R² delta is attributable
+**only** to the extra information.
 
-| 🎯 Target | Step 5 — SES only | **Step 6 — SES + dual budget** | **ΔR²** |
+| 🎯 Target | SES only | **SES + Budget (Boruta-selected)** | **ΔR²** |
 |---|--:|--:|--:|
-| `english_5unit_participation` | 0.192 | **0.391** | **+0.199** |
-| `math_5unit_participation` | 0.056 | **0.211** | **+0.155** |
-| `math_avg_grade` | 0.094 | **0.208** | **+0.114** |
-| `english_avg_grade` | 0.150 | **0.220** | **+0.070** |
+| `math_avg_grade` | 0.138 | **0.458** | **+0.320** |
+| `english_avg_grade` | 0.199 | **0.455** | **+0.256** |
+| `math_5unit_participation` | 0.058 | **0.439** | **+0.381** |
+| `english_5unit_participation` | 0.229 | **0.549** | **+0.321** |
 
-> 📈 **Mean R² gain ≈ +0.13**, with `math_5unit_participation` *quadrupling*. Budget
-> per student is **near-orthogonal to the SES cluster (r ≈ 0.03)** — genuinely new
-> information — and in SHAP it **outranks `cluster`** for the most resilient targets.
-> This supplies the **mechanism** behind the resilience finding: advanced-track
-> capacity is governed by **school-level resourcing, not town wealth** — *policy
-> overrides postcode*. Full detail in
-> [`step_6_budget_integration_performance_boost/`](step_6_budget_integration_performance_boost/README.md).
+> 📈 **Mean ΔR² = +0.320** — every target's explanatory power **more than
+> doubled**. Five budget-derived ratios (tuition, perimeter, projects,
+> purchases, and transport per student) are confirmed by Boruta for **every
+> single target**, and the Ministry's own **school-level** disadvantage
+> ranking (`nurture_quintile`) is, by a wide margin, the **single most
+> influential feature in every SHAP ranking** — ahead of the municipal
+> cluster every time. Full detail in
+> [`step_5_predictive_modeling_explainability/`](step_5_predictive_modeling_explainability/README.md).
 
-![Step 6 before/after R²](step_6_budget_integration_performance_boost/graphs/model_performance/before_after_r2_comparison.png)
+![Ablation before/after](step_5_predictive_modeling_explainability/graphs/ablation_before_after.png)
 
 ---
 
 ## 📈 Core Analytical Deliverables
 
-**MICE vs Median imputation health** — MICE tracks the true density; the median
-collapses onto a spike.
+**MICE robustness across 25 independent trials** — a tight, stable advantage
+over the median baseline, not a one-off result.
 
-![MICE vs Median imputation](step_4_preprocessing_outliers_imputation_experiment/graphs/imputation_success_comparison.png)
+![MICE robustness](step_4_preprocessing_outliers_imputation_experiment/graphs/mice_robustness_multi_iteration.png)
 
-**Subject resilience gap (cluster 2 → 9)** — Math's gap is smaller on both grade
-and advanced participation: Math is the more resilient subject.
+**Subject resilience gap (cluster 2 → 9)** — Math's gap is smaller on both
+grade and advanced participation: Math is the more resilient subject.
 
 ![Subject resilience gap](step_4_preprocessing_outliers_imputation_experiment/graphs/subject_resilience_gap.png)
 
-**Low-SES overachievers** — 18.9 % of poor-locality schools match elite grades,
-and they funnel ~2.6–2.7× more pupils into advanced Math & English tracks.
+**Low-SES overachievers** — 18.9% of poor-locality schools match elite grades,
+and they funnel markedly more pupils into advanced Math & English tracks.
 
 ![Low-SES overachievers](step_4_preprocessing_outliers_imputation_experiment/graphs/low_ses_overachievers_profile.png)
 
-**Cross-validated model leaderboard** — R² by model across the four targets.
+**Cross-validated model leaderboard** — R² by model across the four targets,
+full SES+Budget feature set.
 
 ![Model leaderboard](step_5_predictive_modeling_explainability/graphs/models_performance.png)
+
+**SHAP explainability** — for the target least explained by SES alone
+(`math_5unit_participation`), school-level attributes (`nurture_quintile`,
+`log_school_size`, `transport_per_student`) outrank the municipal cluster.
+
+![SHAP example](step_5_predictive_modeling_explainability/graphs/shap_beeswarm_math_5unit_participation.png)
 
 ---
 
 ## 🎓 Executive Scientific Takeaway
 
-Across three independent methods — **Step-4 cluster-gap analysis**, **Boruta
-feature confirmation**, and **SHAP attribution** — the same asymmetry emerges:
+Across three independent methods — **iterative VIF/collinearity analysis**,
+**Boruta feature confirmation**, and **SHAP attribution** — the same picture
+emerges:
 
-> **Municipal socioeconomic status holds moderate predictive variance over
-> *English* advanced-track selection (R² ≈ 0.19) and English grades (R² ≈ 0.15),
-> but its signal is heavily bounded for *Mathematics* advanced tracking
-> (R² ≈ 0.06).** Boruta even *confirms* the socioeconomic `cluster` as a predictor
-> for the English targets yet drops it for Math — independent corroboration that
-> the **Math advanced pipeline is markedly more resilient** to socioeconomic
-> disparity across the Israeli education landscape.
+> **Municipal socioeconomic status alone is a weak-to-moderate predictor**
+> of Bagrut outcomes (R² 0.06–0.23 in the SES-only arm). **Adding school-level
+> institutional resources — budget ratios, class size, sector, supervision,
+> district, and above all the Ministry's own school-level disadvantage ranking
+> — roughly triples explanatory power** (R² 0.42–0.55). The variance municipal
+> SES cannot explain is not noise: a large share of it is **institutional and
+> structural school identity**, captured from the start of this pipeline
+> rather than as an afterthought.
 
-In short: **SES predicts *who selects English* far better than *who selects
-Math*, and selection better than raw grades** — and that resilience of the Math
-pipeline is the project's central, reproducible finding.
-
-**Step 6 closes the loop:** adding a third dataset of **institutional budget per
-student** lifts mean R² by **≈ +0.13** and, in SHAP, *outranks* municipal SES for
-the most resilient targets. The variance that town wealth cannot explain is not
-noise — it is **school-level resourcing**. The Math pipeline isn't resilient to
-*money*; it is resilient to *municipal* money, because its advanced track is driven
-by each school's own budget. **Policy and resourcing override postcode.**
+In short: **school-level circumstances predict Bagrut outcomes better than the
+wealth of the town a school sits in** — and that gap is the project's central,
+reproducible finding, corroborated by collinearity analysis, feature
+selection, and explainability alike.
 
 ---
 
@@ -219,7 +237,6 @@ python step_2_data_merging_integration/code/run_step2.py
 python step_3_feature_engineering_target_setup/code/run_step3.py
 python step_4_preprocessing_outliers_imputation_experiment/code/run_step4.py
 python step_5_predictive_modeling_explainability/code/run_step5.py
-python step_6_budget_integration_performance_boost/code/run_step6.py
 ```
 
 ### 📦 Data sources (raw files are git-ignored, not redistributed)
@@ -229,8 +246,11 @@ python step_6_budget_integration_performance_boost/code/run_step6.py
 - **Dataset 2 — CBS Socioeconomic Index**: Israel Central Bureau of Statistics,
   <https://www.cbs.gov.il/>
 - **Dataset 3 — Ministry of Education School-Budget Report** (per-institution
-  budget & enrolment; used in Step 6): Israel Ministry of Education info-center,
+  budget & enrolment): Israel Ministry of Education info-center,
   <https://infocenter.education.gov.il/all/sense/app/4f021b9e-f3c8-48f0-b349-a29eb97833a9/sheet/013b1d75-d09a-4ad3-9c4e-84085c3cca63/state/analysis>
+  — a **single-year (2014/15) snapshot**, joined statically across all Bagrut
+  years; see [Step 1's README](step_1_ingestion_standardization/README.md#4-verified-results)
+  for the full limitation note.
 
 ---
 
@@ -238,13 +258,13 @@ python step_6_budget_integration_performance_boost/code/run_step6.py
 
 | Category | Method | Stage |
 |---|---|---|
-| Imputation | **MICE** (IterativeImputer) | Step 4 |
+| Imputation | **MICE** (IterativeImputer, 25-iteration robustness) | Step 4 |
 | Outlier detection | **Isolation Forest**, **Local Outlier Factor** | Step 4 |
 | Modeling | **SGD** (linear SVM), Ridge, RandomForest, **HistGradientBoosting** | Step 5 |
-| Feature selection | **Boruta** | Step 5 |
+| Feature selection | **Boruta** (49-column candidate space) | Step 5 |
 | Explainability | **SHAP** | Step 5 |
-| Collinearity | **VIF** | Step 5 |
-| Multi-source integration | **3rd-dataset `semel` join + dual feature engineering** | Step 6 |
+| Collinearity | **Iterative VIF pruning** | Step 5 |
+| Multi-source integration | **3 datasets merged from Step 1** (fuzzy name + exact `semel` joins) | Steps 1–2 |
 
 ---
 

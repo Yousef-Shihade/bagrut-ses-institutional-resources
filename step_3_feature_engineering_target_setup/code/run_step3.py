@@ -1,13 +1,16 @@
 """
-run_step3.py — Step 3 orchestrator (Feature Engineering & Target Setup).
+run_step3.py — Step 3 orchestrator (v2: feature engineering & target setup).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
-Pipeline:
-    load Step-2 merged -> aggregate to school level (semel x year)
-    -> engineer 4 targets -> write school_level_features_targets.csv
-    -> 3 target-exploration plots -> validation summary
+Flow:
+    load Step-2 merged table (118 subjects, all 3 sources)
+    -> filter to Math+English, re-grain to school x year
+    -> engineer 4 targets + 8 budget ratios + special_ed_share + log_school_size
+       + log_population
+    -> 4 diagnostic plots + verification summary
 
 Usage:
     python code/run_step3.py
@@ -15,84 +18,102 @@ Usage:
 from __future__ import annotations
 
 import sys
+import warnings
 from pathlib import Path
+
+warnings.filterwarnings("ignore")
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import pandas as pd  # noqa: E402
-
 import feature_engineering as fe  # noqa: E402
-import visualize  # noqa: E402
+import visualize as viz  # noqa: E402
 from io_load import load_config, load_merged, resolve  # noqa: E402
-
-TARGET_COLS = ["math_avg_grade", "english_avg_grade",
-               "math_5unit_participation", "english_5unit_participation"]
 
 
 def _hr(c: str = "=") -> str:
-    return c * 72
+    return c * 78
 
 
 def main() -> None:
     cfg = load_config()
+    graphs = resolve(cfg["paths"]["out_graphs"])
 
     print(_hr())
-    print("STEP 3 — FEATURE ENGINEERING & TARGET SETUP")
+    print("STEP 3 — FEATURE ENGINEERING & TARGET SETUP (v2)")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
 
-    # --- 1. Load + aggregate ---------------------------------------------- #
-    merged = load_merged(cfg)
-    school = fe.build_school_level(merged, cfg)
+    df = load_merged(cfg)
+    print(f"\n[LOAD] Step-2 merged table: {df.shape}  ({df['subject'].nunique()} subjects)")
 
-    # --- 2. Persist -------------------------------------------------------- #
-    resolve(cfg["paths"]["out_data"]).mkdir(parents=True, exist_ok=True)
+    core = cfg["subjects"]["core"]
+    n_math = (df["subject"] == core["math"]).sum()
+    n_eng = (df["subject"] == core["english"]).sum()
+    print(f"\n[FILTER] Math ({core['math']}): {n_math:,} rows | "
+          f"English ({core['english']}): {n_eng:,} rows | "
+          f"= {100*(n_math+n_eng)/len(df):.1f}% of all subject-cells")
+
+    school_level = fe.build_school_level(df, cfg)
+    print(f"\n[AGGREGATE] re-grained to semel x year: {school_level.shape[0]:,} rows")
+    print(f"    distinct schools: {school_level['semel'].nunique():,}")
+    print(f"    years: {sorted(school_level['year'].dropna().unique())}")
+
+    # ---------------- targets ------------------------------------------------ #
+    print("\n[TARGETS] (takers-weighted grade / 5-unit participation)")
+    for t in ["math_avg_grade", "english_avg_grade",
+             "math_5unit_participation", "english_5unit_participation"]:
+        s = school_level[t]
+        print(f"    {t:30s} non-null {s.notna().sum():5,d} ({s.notna().mean()*100:5.1f}%)  "
+              f"mean {s.mean():.3f}")
+
+    # ---------------- feature inventory --------------------------------------- #
+    print("\n[FEATURES] candidate predictors carried forward")
+    cbs_numeric = [c for c in cfg["cbs_features"] if c != "ses_locality_name"]
+    print(f"    CBS municipal ({len(cbs_numeric)}): {cbs_numeric} + log_population")
+    print(f"    Budget categorical ({len(cfg['budget_categorical'])}): {cfg['budget_categorical']}")
+    ratio_names = list(cfg["budget_ratios"].keys())
+    print(f"    Budget direct numeric ({len(cfg['budget_direct_numeric'])}): {cfg['budget_direct_numeric']}")
+    print(f"    Budget engineered ratios ({len(ratio_names)}): {ratio_names}")
+    print(f"    Budget derived ({2}): ['special_ed_share', 'log_school_size']")
+    print(f"    Temporal (1): ['year']")
+    total_conceptual = (len(cbs_numeric) + 1 + len(cfg["budget_categorical"])
+                        + len(cfg["budget_direct_numeric"]) + len(ratio_names) + 2 + 1)
+    print(f"    TOTAL CONCEPTUAL FEATURES: {total_conceptual}  "
+          f"(v1 baseline was 4 — Boruta in Step 5 will select among these)")
+
+    # ---------------- ratio engineering coverage ------------------------------ #
+    print("\n[BUDGET RATIOS] coverage on the school-year table")
+    for name in ratio_names:
+        if name in school_level.columns:
+            s = school_level[name]
+            print(f"    {name:30s} {s.notna().sum():5,d}/{len(s):5,d} "
+                  f"({s.notna().mean()*100:5.1f}%)  median={s.median():,.1f}")
+
+    # ---------------- save ------------------------------------------------------ #
     out_path = resolve(cfg["paths"]["school_level_out"])
-    school.to_csv(out_path, index=False, encoding="utf-8-sig")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    school_level.to_csv(out_path, index=False, encoding=cfg["io"]["encoding"])
+    print(f"\n[SAVE] {out_path.name}  ({school_level.shape[0]:,} x {school_level.shape[1]})  "
+          f"({out_path.stat().st_size/1024/1024:.2f} MB)")
 
-    # --- 3. Visuals -------------------------------------------------------- #
-    plot_paths = visualize.run(school, cfg)
-
-    # --- 4. Validation summary -------------------------------------------- #
-    n = len(school)
-    print("\n[1] GRAIN CHANGE")
-    print(f"    subject-cell rows (Step 2) : {len(merged):,}")
-    print(f"    school-level rows          : {n:,}  (grain = {cfg['grain']})")
-    print(f"    distinct schools (semel)   : {school['semel'].nunique():,}")
-    print(f"    years                      : "
-          f"{sorted(school['year'].unique().tolist())}")
-    print(f"    final shape                : {school.shape}")
-
-    print("\n[2] ENGINEERED TARGETS — coverage & range")
-    print("    target                          non-null         mean     min     max")
-    for c in TARGET_COLS:
-        s = school[c]
-        print(f"    {c:31s} {s.notna().sum():5d} ({s.notna().mean()*100:4.1f}%)  "
-              f"{s.mean():7.3f} {s.min():7.2f} {s.max():7.2f}")
-
-    print("\n[3] CBS PREDICTORS retained (per school, constant within semel)")
-    print(f"    columns: {cfg['cbs_features']}")
-    print(f"    rows with socioeconomic cluster : {school['cluster'].notna().sum():,} "
-          f"({school['cluster'].notna().mean()*100:.1f}%)")
-    print("    NOTE: district/מחוז is NOT in the CBS extract -> not included "
-          "(documented, not fabricated).")
-
-    print("\n[4] FEASIBILITY — Pearson r(cluster, target)  [higher = more SES-linked]")
-    d = school[school["cluster"].notna()]
-    for c in TARGET_COLS:
-        r = d[["cluster", c]].corr().iloc[0, 1]
-        print(f"    cluster vs {c:31s} r = {r:+.3f}")
-
-    print("\n[5] OUTPUTS")
-    print(f"    {out_path.name}  ({school.shape[0]:,} x {school.shape[1]})")
-    print(f"    columns: {list(school.columns)}")
-    print("    graphs:")
-    for p in plot_paths:
-        print(f"      - {Path(p).name:30s} ({Path(p).stat().st_size/1024:6.1f} KB)")
+    # ---------------- plots -------------------------------------------------- #
+    print("\n[PLOTS]")
+    paths = [
+        viz.plot_target_distributions(school_level, graphs),
+        viz.plot_cluster_vs_targets(school_level, graphs),
+        viz.plot_feature_inventory(cfg, graphs),
+        viz.plot_budget_ratio_correlation(school_level, cfg, graphs),
+    ]
+    for p in paths:
+        print(f"    - {p.name:34s} ({p.stat().st_size/1024:6.1f} KB)")
 
     print("\n" + _hr())
-    print("STEP 3 COMPLETE ✔   (awaiting signal for Step 4)")
+    print("STEP 3 COMPLETE ✔  — school-year table with targets + engineered features.")
     print(_hr())
 
 
