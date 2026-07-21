@@ -1,12 +1,13 @@
-# Step 4 — Preprocessing, Outlier Detection & the MICE Imputation Experiment
+# Step 4 — Preprocessing, Outliers & MICE Robustness (v2)
 
-**Project:** Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+**Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shehade & Shada Esawi
 
-> Self-contained milestone folder. Step 4 fulfils the Presentation 3+4 data-
-> cleaning / statistics slides: the lecturer's **MICE imputation experiment**,
-> **outlier detection** (Isolation Forest + LOF), and baseline answers to the two
-> **core exploratory questions**. Output: a modeling-ready cache for Step 5.
+> **v2 change.** The lecturer flagged that a *single* masked-imputation run is
+> not sufficient evidence of stability. Task A now repeats the MICE experiment
+> **25 times** with independent random seeds/masks and reports the full
+> distribution (mean ± std, min/max) rather than one number. Tasks B and C reuse
+> v1's proven methodology, now operating on the richer v2 feature space.
 
 ---
 
@@ -15,152 +16,101 @@
 ```
 step_4_preprocessing_outliers_imputation_experiment/
 ├── README.md
-├── config.yaml                       # paths, seed, task parameters
+├── config.yaml                    # 25 iterations, outlier feature space, exploratory params
 ├── code/
-│   ├── io_load.py                    # load Step-3 table + derived cols (combined grade, logs)
-│   ├── imputation_experiment.py      # Task A — MICE vs median
-│   ├── outliers.py                   # Task B — Isolation Forest + LOF
-│   ├── exploratory.py                # Task C — Q1 resilience, Q2 overachievers
-│   └── run_step4.py                  # orchestrator + console summary
+│   ├── io_load.py                 # load Step-3 table + combined_avg_grade, log_total_takers
+│   ├── imputation_experiment.py   # NEW: 25-iteration MICE robustness
+│   ├── outliers.py                # Isolation Forest + LOF (v1, unchanged)
+│   ├── exploratory.py             # Q1 resilience + Q2 overachievers (v1, unchanged)
+│   └── run_step4.py               # orchestrator + verification summary
 ├── data/
-│   └── cleaned_modeling_ready.csv    # 3,697 × 27 (cluster-present, outlier-flagged)
+│   ├── cleaned_modeling_ready.csv     # 3,731 × 54 (targets, features, outlier flags)
+│   └── mice_robustness_runs.csv       # per-run detail, all 25 trials
 └── graphs/
-    ├── imputation_success_comparison.png
-    ├── outlier_detection_mapping.png
-    ├── subject_resilience_gap.png
-    └── low_ses_overachievers_profile.png
 ```
 
-Run: `python code/run_step4.py` (paths anchored to the step folder; CWD-independent).
+Run: `python code/run_step4.py`.
 
 ---
 
-## 2. Task A — MICE imputation experiment
+## 2. Task A — MICE robustness (v2: 25 independent trials)
 
-Per the guideline *"if no missing values, artificially remove 5–10 % and compare
-imputation success"*. We masked **8 %** of the fully-populated CBS `index_value`
-(296 of 3,697 cells, `seed=42`), then reconstructed it two ways and scored the
-masked cells against ground truth.
+**Why 25 runs, not 1.** One masked draw could be lucky or unlucky. Repeating with
+25 different random seeds (same 8% mask fraction, same predictor set, same
+`IterativeImputer` config each time) shows whether the result is a stable
+property of the method or a fluke of one draw.
 
-| Method | RMSE | MAE | R² |
+**Setup:** mask `index_value` (100% complete CBS feature) on **296 rows** (8% of
+3,697) per run; reconstruct with MICE (`IterativeImputer` + `BayesianRidge`) and a
+median baseline; score both against the true hidden values. Predictor set
+**expanded to 14 columns** (v1 had 9) — now includes the budget-derived features,
+so the demonstration reflects the actual v2 dataset.
+
+### Results across 25 runs
+
+| Method | R² (mean ± std) | R² range | RMSE (mean ± std) |
+|---|---|---|---|
+| **MICE** | **0.9536 ± 0.0060** | 0.9405 – 0.9645 | 0.199 ± 0.016 |
+| Median baseline | −0.0046 ± 0.0059 | ≈ 0 throughout | 0.927 ± 0.037 |
+
+**MICE outperformed the median baseline on all 25/25 runs.**
+
+![MICE robustness](graphs/mice_robustness_multi_iteration.png)
+
+The left panel's tight boxplot (std = 0.006, about 0.6% of the mean) and the right
+panel's flat, non-drifting line across runs are the direct visual proof of
+stability the lecturer asked for.
+
+---
+
+## 3. Task B — Outlier detection (unchanged method, richer feature space)
+
+Same two complementary detectors as v1 — **Isolation Forest** (global anomalies)
+and **Local Outlier Factor** (local-density anomalies) — now run on a **9-feature
+space** (v1 used 7), adding `total_budget_per_student` and `avg_class_size` so
+institutional-resourcing outliers can be caught too.
+
+| | Isolation Forest | LOF | Consensus (both) |
 |---|--:|--:|--:|
-| **MICE** (`IterativeImputer`, BayesianRidge) | **0.209** | **0.143** | **0.949** |
-| Median baseline | 0.928 | 0.782 | −0.003 |
+| Flagged | 167 | 167 | **49** |
 
-**MICE cuts RMSE by 77.4 %.** It works because `IterativeImputer` regresses the
-masked feature on the others (`index_value` correlates 0.97 with `cluster`),
-whereas the median ignores all structure and collapses every gap onto one value.
-`graphs/imputation_success_comparison.png` shows it: the MICE density overlays the
-original almost perfectly while the median imputation injects a spike at the
-median (left), and on the masked cells MICE hugs the identity line while the
-median predictions form a flat band (right).
+Jaccard overlap = **0.172** (v1: 0.116) — still low, confirming the two detectors
+capture different anomaly notions, but the richer feature space raised agreement
+somewhat. As in v1, only the **49 consensus** records are flagged
+(`outlier_consensus`) — none are deleted from the data; they are simply
+**excluded from model training** in Step 5 via a config switch, so they remain
+fully auditable.
 
-> Methodological note: this experiment is deliberately run on a **complete
-> feature**, never on the targets. The grade targets are left missing where the
-> source suppressed them (small-cohort privacy) — see Steps 1 & 3.
+![outlier mapping](graphs/outlier_detection_mapping.png)
 
 ---
 
-## 3. Task B — Outlier detection (Isolation Forest vs LOF)
+## 4. Task C — Exploratory questions (unchanged from v1)
 
-Both detectors ran on the same 7-feature standardised space
-(`combined_avg_grade`, Math/English 5-unit participation, `cluster`,
-`index_value`, `log_population`, `log_total_takers`) over the **3,367**
-complete-case school-years, `contamination = 0.05`.
+Both questions are **SES-only by design** (they test the original research
+question's resilience/overachiever findings) and depend only on `cluster` and the
+4 targets — unaffected by the new budget features, so results are **identical to
+v1**, confirming the aggregation pipeline carried through correctly.
 
-| Detector | Flagged | |
-|---|--:|---|
-| Isolation Forest (global, tree-isolation) | 169 | |
-| Local Outlier Factor (local density, k=20) | 169 | |
-| **Consensus (both)** | **35** | Jaccard = 0.12 |
-| Flagged by either | 303 | iso-only 134, lof-only 134 |
+**Q1 — Subject resilience** (cluster 2 → cluster 9 gap): **Math is more
+resilient** — grade gap 6.18 pts (d=0.91) vs English 6.45 pts (d=1.16);
+participation gap 0.115 (Math) vs 0.367 (English).
 
-The **low overlap (Jaccard 0.12)** is the interesting result: the two methods
-encode different notions of "anomalous". Isolation Forest catches globally
-extreme profiles; LOF catches schools that are odd *relative to their local
-neighbourhood*. We therefore keep a conservative **consensus flag**
-(`outlier_consensus`, 35 rows) rather than dropping everything either model
-dislikes. `graphs/outlier_detection_mapping.png` maps them in SES-vs-grade space.
-
-**Outliers are flagged, not deleted** — `cleaned_modeling_ready.csv` keeps every
-row plus the flags, so Step 5 can choose whether to exclude them.
+**Q2 — Low-SES overachievers**: **87 / 460 (18.9%)** of low-cluster (1–4) schools
+match or exceed the elite-cluster (8–10) median grade (84.90); their advanced-track
+participation is significantly higher (Math p=1.4e-05, English p=1.4e-11).
 
 ---
 
-## 4. Task C — baseline answers to the two exploratory questions
+## 5. Step 4 verification checklist
 
-### Q1 — Which subject is most resilient to socioeconomic disparity?
-Gap between **cluster 2** and **cluster 9** (smaller gap ⇒ more resilient):
+- [x] MICE robustness run **25×** with independent seeds; MICE beats median on 25/25 runs.
+- [x] MICE predictor set expanded to 14 columns (incl. budget features).
+- [x] Per-run detail saved (`mice_robustness_runs.csv`) for full auditability.
+- [x] Isolation Forest + LOF run on the expanded 9-feature space; 49 consensus outliers flagged (not deleted).
+- [x] Exploratory Q1/Q2 reproduce v1 exactly — sanity-checks the pipeline port.
+- [x] 4/4 plots saved.
+- [x] `cleaned_modeling_ready.csv` (3,731 × 54) written.
 
-| Subject | Grade c2→c9 | Grade gap | Cohen's d | 5-unit part. gap |
-|---|---|--:|--:|--:|
-| **Math** | 78.6 → 84.7 | **+6.18 pts** (+7.9 %) | **0.91** | **+0.115** |
-| English | 79.9 → 86.3 | +6.45 pts (+8.1 %) | 1.16 | +0.367 |
-
-**Answer: Mathematics is the more resilient subject.** Its grade gap is smaller
-(6.18 vs 6.45 pts, and a smaller effect size d = 0.91 vs 1.16), and its
-advanced-track participation is far less socioeconomically stratified
-(+0.115 vs +0.367 — English advanced selection is ~3× more SES-sensitive).
-Intuition: Math 5-unit is gated by ability/pipeline fairly uniformly, whereas
-English 5-unit uptake scales steeply with the wealth/exposure of the locality.
-(Caveat: cluster 9 has only 41 school-years, so treat the elite tail as
-indicative.) Plot: `graphs/subject_resilience_gap.png`.
-
-### Q2 — Are there low-SES overachievers, and how do they select subjects?
-Schools were aggregated to **school level (mean across years)** so "consistently"
-is captured. Benchmark = **median combined grade of elite (cluster 8–10) schools
-= 84.90**.
-
-- **87 of 460** low-SES (cluster 1–4) schools (**18.9 %**) match or exceed the
-  elite median grade — a substantial resilient group, not a handful.
-- Their **advanced-track selection is dramatically higher** than ordinary low-SES
-  schools:
-
-  | 5-unit participation | Overachievers | Normal low-SES | p-value |
-  |---|--:|--:|--:|
-  | Math | 0.132 | 0.049 | 1.4 × 10⁻⁵ |
-  | English | 0.468 | 0.181 | 1.4 × 10⁻¹¹ |
-
-  i.e. they push **~2.7× more students into advanced Math** and **~2.6× more into
-  advanced English** — they channel pupils into the hard tracks across the board.
-- The top names are **selective / religious / science-oriented** schools
-  (e.g. *תיכון ליד האוניברסיטה*, *מעלות בית יעקב*, *עתיד למדעים לוד*), suggesting
-  selection and programme focus, not locality wealth, drive their results.
-
-Plot: `graphs/low_ses_overachievers_profile.png`.
-
----
-
-## 5. Output — `data/cleaned_modeling_ready.csv` (3,697 × 27)
-
-The Step-3 school-year table (cluster-present rows only) **plus**: derived
-features (`combined_avg_grade`, `total_takers`, `log_population`,
-`log_total_takers`) and outlier metadata (`iso_outlier`, `lof_outlier`,
-`iso_score`, `lof_score`, `outlier_consensus`, `outlier_any`). Targets keep their
-NaNs (never imputed).
-
----
-
-## 6. Mandated-method coverage (lecturer's list)
-
-| Method | Used in | 
-|---|---|
-| **MICE** (IterativeImputer) | Task A imputation experiment |
-| **Isolation Forest** | Task B outlier detection |
-| **Local Outlier Factor (LOF)** | Task B outlier detection |
-
-(SGD / Boruta / SHAP are reserved for the Step 5 modeling phase.)
-
----
-
-## 7. Step 4 verification checklist
-
-- [x] MICE vs median experiment on a complete feature (8 % masked) — MICE −77 % RMSE.
-- [x] Imputation density/scatter plot saved.
-- [x] Isolation Forest + LOF run, contrasted (169 / 169, consensus 35, Jaccard 0.12).
-- [x] Outlier mapping plot saved; outliers flagged, not dropped.
-- [x] Q1 resilience gap computed + plotted → **Math more resilient**.
-- [x] Q2 overachievers identified (87/460, 18.9 %) + profiled + plotted.
-- [x] `cleaned_modeling_ready.csv` (3,697 × 27) written; targets not imputed.
-
-**Status: Step 4 complete ✔ — awaiting signal to begin Step 5.**
+**Status: Step 4 complete ✔ — awaiting signal to begin Step 5 (modeling, ablation,
+Boruta, SHAP).**

@@ -1,17 +1,17 @@
 """
-imputation_experiment.py — Task A: MICE vs median imputation (the lecturer's test).
+imputation_experiment.py — Task A: MICE robustness (v2: multi-iteration).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
-Procedure (per the presentation guideline "if none missing, artificially remove
-5-10% and compare imputation success"):
-  1. Take a fully-populated continuous feature (CBS ``index_value``).
-  2. Randomly mask `mask_fraction` of its values (8%).
-  3. Reconstruct with **MICE** (sklearn ``IterativeImputer``) using the other
-     numeric features as predictors.
-  4. Reconstruct a parallel copy with a **median** baseline.
-  5. Compare RMSE / MAE / R^2 on the masked cells, and overlay the densities.
+v1 ran the "mask 8% and reconstruct" test ONCE. The lecturer flagged this as
+insufficient evidence: a single lucky/unlucky random mask does not prove the
+method is *stable*. v2 repeats the experiment N_ITERATIONS times, each with an
+independent random mask (different seed, same 8% fraction, same predictor set),
+and reports the distribution (mean +/- std, min/max) of R^2/RMSE/MAE across runs
+for both MICE and the median baseline — proving the result generalises rather
+than being a one-off draw.
 """
 from __future__ import annotations
 
@@ -29,107 +29,123 @@ import seaborn as sns
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="seaborn")
 
-from sklearn.experimental import enable_iterative_imputer  # noqa: F401  (enables import below)
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 from sklearn.impute import IterativeImputer, SimpleImputer
 from sklearn.linear_model import BayesianRidge
 
 sns.set_theme(style="whitegrid", context="talk")
+NAVY, TEAL, CORAL, GOLD = "#1b2a4a", "#2a9d8f", "#d1495b", "#e8b23a"
 
 
-def run_experiment(df: pd.DataFrame, cfg: dict[str, Any]) -> dict[str, Any]:
-    """Mask 8% of ``index_value`` and compare MICE vs median reconstruction."""
-    ie = cfg["imputation_experiment"]
-    seed = cfg["seed"]
-    target = ie["target_feature"]
-    predictors = ie["predictors"]
+def _metrics(pred: np.ndarray, true: np.ndarray) -> dict[str, float]:
+    err = pred - true
+    rmse = float(np.sqrt(np.mean(err ** 2)))
+    mae = float(np.mean(np.abs(err)))
+    ss_res = float(np.sum(err ** 2))
+    ss_tot = float(np.sum((true - true.mean()) ** 2))
+    r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
+    return {"RMSE": rmse, "MAE": mae, "R2": r2}
 
-    # Work on rows where the experiment target is fully observed.
-    data = df[df[target].notna()].copy()
-    X = data[predictors].astype(float).reset_index(drop=True)
+
+def _run_once(X: pd.DataFrame, target: str, mask_fraction: float,
+              mice_max_iter: int, seed: int) -> dict[str, Any]:
+    """One masked-reconstruction trial with a given random seed."""
     truth = X[target].to_numpy().copy()
-
-    # --- Randomly mask mask_fraction of the target values --------------------
     rng = np.random.default_rng(seed)
     n = len(X)
-    n_mask = int(round(n * ie["mask_fraction"]))
+    n_mask = int(round(n * mask_fraction))
     mask_idx = rng.choice(n, size=n_mask, replace=False)
     mask_bool = np.zeros(n, dtype=bool)
     mask_bool[mask_idx] = True
 
     X_masked = X.copy()
     X_masked.loc[mask_bool, target] = np.nan
+    true_masked = truth[mask_bool]
 
-    # --- MICE (IterativeImputer over the full numeric matrix) ----------------
-    mice = IterativeImputer(estimator=BayesianRidge(), max_iter=ie["mice_max_iter"],
+    mice = IterativeImputer(estimator=BayesianRidge(), max_iter=mice_max_iter,
                             random_state=seed, sample_posterior=False)
     mice_full = mice.fit_transform(X_masked)
-    mice_col = mice_full[:, predictors.index(target)]
-    mice_pred = mice_col[mask_bool]
+    mice_pred = mice_full[:, X.columns.get_loc(target)][mask_bool]
 
-    # --- Median baseline (single-column, ignores all structure) --------------
     med = SimpleImputer(strategy="median")
     median_col = med.fit_transform(X_masked[[target]]).ravel()
     median_pred = median_col[mask_bool]
-    median_value = float(med.statistics_[0])
 
-    # --- Metrics on the masked cells -----------------------------------------
-    true_masked = truth[mask_bool]
+    return {"seed": seed, "n_masked": n_mask,
+            "mice": _metrics(mice_pred, true_masked),
+            "median": _metrics(median_pred, true_masked)}
 
-    def _metrics(pred: np.ndarray) -> dict[str, float]:
-        err = pred - true_masked
-        rmse = float(np.sqrt(np.mean(err ** 2)))
-        mae = float(np.mean(np.abs(err)))
-        ss_res = float(np.sum(err ** 2))
-        ss_tot = float(np.sum((true_masked - true_masked.mean()) ** 2))
-        r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
-        return {"RMSE": rmse, "MAE": mae, "R2": r2}
 
-    results = {
-        "n_total": n, "n_masked": n_mask, "mask_fraction": ie["mask_fraction"],
-        "target": target, "median_value": median_value,
-        "mice": _metrics(mice_pred), "median": _metrics(median_pred),
-        # Full reconstructed columns for the density plot.
-        "_truth_full": truth,
-        "_mice_full": mice_col,
-        "_median_full": np.where(mask_bool, median_col, truth),
-        "_true_masked": true_masked, "_mice_pred": mice_pred, "_median_pred": median_pred,
+def run_multi_iteration(df: pd.DataFrame, cfg: dict[str, Any]) -> dict[str, Any]:
+    """Run the masking experiment N_ITERATIONS times with independent seeds."""
+    ie = cfg["imputation_experiment"]
+    target = ie["target_feature"]
+    predictors = ie["predictors"]
+    n_iter = ie["n_iterations"]
+    base_seed = cfg["seed"]
+
+    data = df[df[target].notna()].copy()
+    X = data[predictors].astype(float).reset_index(drop=True)
+
+    rows = []
+    for i in range(n_iter):
+        seed = base_seed + i
+        res = _run_once(X, target, ie["mask_fraction"], ie["mice_max_iter"], seed)
+        rows.append({"run": i, "seed": seed,
+                    "MICE_R2": res["mice"]["R2"], "MICE_RMSE": res["mice"]["RMSE"],
+                    "MICE_MAE": res["mice"]["MAE"],
+                    "Median_R2": res["median"]["R2"], "Median_RMSE": res["median"]["RMSE"],
+                    "Median_MAE": res["median"]["MAE"]})
+
+    runs = pd.DataFrame(rows)
+    summary = {
+        "n_iterations": n_iter, "n_total": len(X),
+        "n_masked": int(round(len(X) * ie["mask_fraction"])),
+        "target": target, "predictors": predictors,
+        "MICE_R2_mean": float(runs["MICE_R2"].mean()), "MICE_R2_std": float(runs["MICE_R2"].std()),
+        "MICE_R2_min": float(runs["MICE_R2"].min()), "MICE_R2_max": float(runs["MICE_R2"].max()),
+        "MICE_RMSE_mean": float(runs["MICE_RMSE"].mean()), "MICE_RMSE_std": float(runs["MICE_RMSE"].std()),
+        "Median_R2_mean": float(runs["Median_R2"].mean()), "Median_R2_std": float(runs["Median_R2"].std()),
+        "Median_RMSE_mean": float(runs["Median_RMSE"].mean()), "Median_RMSE_std": float(runs["Median_RMSE"].std()),
     }
-    return results
+    return {"runs": runs, "summary": summary}
 
 
-def plot_comparison(results: dict[str, Any], out_dir: Path) -> Path:
-    """Density overlay: original vs MICE-imputed vs median-imputed full column."""
+def plot_robustness(result: dict[str, Any], out_dir: Path) -> Path:
+    """Boxplot of R^2 across all iterations, MICE vs median — the stability proof."""
     out_dir.mkdir(parents=True, exist_ok=True)
+    runs, summ = result["runs"], result["summary"]
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6.5))
 
-    # Left: full-column density (shows the median spike artifact).
-    sns.kdeplot(results["_truth_full"], ax=ax1, color="#2a9d8f", lw=2.5,
-                label="Original (no missing)", fill=True, alpha=0.15)
-    sns.kdeplot(results["_mice_full"], ax=ax1, color="#3b6ea5", lw=2.5,
-                label="MICE-imputed", linestyle="--")
-    sns.kdeplot(results["_median_full"], ax=ax1, color="#d1495b", lw=2.5,
-                label="Median-imputed", linestyle=":")
-    ax1.axvline(results["median_value"], color="#d1495b", lw=1, alpha=0.5)
-    ax1.set_title(f"Density of {results['target']} after imputation")
-    ax1.set_xlabel(results["target"]); ax1.legend(fontsize=11)
+    # Left: R^2 distribution across runs (the stability evidence).
+    box_data = [runs["MICE_R2"], runs["Median_R2"]]
+    bp = ax1.boxplot(box_data, labels=["MICE", "Median"], patch_artist=True,
+                     widths=0.5)
+    for patch, c in zip(bp["boxes"], [TEAL, CORAL]):
+        patch.set_facecolor(c); patch.set_alpha(0.65)
+    for i, data in enumerate(box_data, start=1):
+        jitter = np.random.default_rng(0).normal(0, 0.04, len(data))
+        ax1.scatter(np.full(len(data), i) + jitter, data, s=18, color="black",
+                   alpha=0.5, zorder=3)
+    ax1.set_title(f"R² across {summ['n_iterations']} independent runs\n"
+                 f"MICE {summ['MICE_R2_mean']:.3f} ± {summ['MICE_R2_std']:.3f}  vs  "
+                 f"Median {summ['Median_R2_mean']:.3f} ± {summ['Median_R2_std']:.3f}",
+                 fontsize=13)
+    ax1.set_ylabel("R² (reconstruction of masked cells)")
 
-    # Right: predicted-vs-true scatter on the masked cells.
-    tm = results["_true_masked"]
-    ax2.scatter(tm, results["_mice_pred"], s=22, color="#3b6ea5", alpha=0.7,
-                label=f"MICE (RMSE={results['mice']['RMSE']:.3f})")
-    ax2.scatter(tm, results["_median_pred"], s=22, color="#d1495b", alpha=0.5,
-                marker="x", label=f"Median (RMSE={results['median']['RMSE']:.3f})")
-    lim = [tm.min() - 0.2, tm.max() + 0.2]
-    ax2.plot(lim, lim, color="black", lw=1, ls="--", label="perfect")
-    ax2.set_xlim(lim); ax2.set_ylim(lim)
-    ax2.set_title("Masked cells — predicted vs true")
-    ax2.set_xlabel(f"true {results['target']}"); ax2.set_ylabel("imputed value")
+    # Right: per-run R^2 trend line — visually shows no drift/instability.
+    ax2.plot(runs["run"], runs["MICE_R2"], "o-", color=TEAL, label="MICE", lw=1.5)
+    ax2.plot(runs["run"], runs["Median_R2"], "o-", color=CORAL, label="Median", lw=1.5)
+    ax2.axhline(summ["MICE_R2_mean"], color=TEAL, ls="--", lw=1, alpha=0.6)
+    ax2.set_title("R² per run (different random 8% mask each time)")
+    ax2.set_xlabel("run index"); ax2.set_ylabel("R²")
     ax2.legend(fontsize=11)
 
-    fig.suptitle("Task A — Imputation Success: MICE vs Median Baseline "
-                 f"({int(results['mask_fraction']*100)}% masked)", fontsize=16)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
-    path = out_dir / "imputation_success_comparison.png"
+    fig.suptitle(f"Task A — MICE Robustness: {summ['n_iterations']} independent masking trials "
+                f"({int(summ['n_masked'])} cells masked each run, 8%)", fontsize=15)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    path = out_dir / "mice_robustness_multi_iteration.png"
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return path
