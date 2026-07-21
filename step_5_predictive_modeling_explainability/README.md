@@ -166,15 +166,14 @@ confirmation of the ablation result.
 
 ---
 
-## 7. Headline answer to the (new) research question
+## 7. Headline answer to the research question
 
 **Municipal socioeconomic status alone is a weak-to-moderate predictor**
-(R² 0.06–0.23), consistent with v1. **Adding school-level institutional
-resources — budget, class size, sector, supervision, district — roughly
-triples explanatory power** (R² 0.42–0.55). The variance municipal SES cannot
-explain is not noise: a large share of it is **institutional and structural
-school identity**, which this pipeline now captures from the start rather than
-as an afterthought.
+(R² 0.06–0.23). **Adding school-level institutional resources — budget, class
+size, sector, supervision, district — roughly triples explanatory power**
+(R² 0.42–0.55). The variance municipal SES cannot explain is not noise: a
+large share of it is **institutional and structural school identity**, which
+this pipeline captures from the start rather than as an afterthought.
 
 ---
 

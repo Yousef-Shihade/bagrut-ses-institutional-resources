@@ -18,14 +18,15 @@
 
 ## 🎯 Research Questions
 
-1. **Main:** Can a municipality's socioeconomic status **and** a school's own
-   institutional resources — together — predict a high school's average
-   performance and advanced-track selection?
-2. **Secondary A:** Which academic subjects are most **resilient** to
-   socioeconomic disparity, and are there low-SES schools that consistently
-   match elite results?
-3. **Secondary B:** Does institutional funding explain outcome variance that
-   municipal wealth alone cannot?
+1. **Main:** Can municipal socioeconomic status and school-level institutional
+   resources, **combined**, meaningfully predict Israeli high-school Bagrut
+   achievement and advanced-track participation?
+2. **Secondary A:** Which subject — Math or English — is more **resilient** to
+   socioeconomic and institutional disparity, and are there schools that
+   consistently outperform their peers despite limited resources?
+3. **Secondary B:** Which specific school-level factors — budget allocation,
+   class size, sector, or supervision type — most strongly predict Bagrut
+   outcomes, independent of municipal wealth?
 
 We model four school-level targets: **average Bagrut grade** and **5-unit
 (advanced-track) participation rate**, each for **Mathematics** and **English**.
