@@ -1,14 +1,16 @@
-# Step 5 — Predictive Modeling & Explainability
+# Step 5 — Predictive Modeling, Ablation & Explainability (v2)
 
-**Project:** Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+**Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shehade & Shada Esawi
 
-> Built directly to the **Presentation 3+4 rubric** (parsed from
-> `guidelines/Presentation_3+4_guidelines.docx`): feature selection with
-> rationale/results, collinearity handling, normalisation, ≥1 tuned model with
-> cross-validation, and feature importance (SHAP). The headline research question
-> is answered here: *can a municipality's socioeconomic status alone predict a
-> school's performance and track selection?*
+> **v2 change.** Boruta now selects among the **full 49-column SES+budget
+> candidate space** (up from v1's 4 municipal features), collinearity handling
+> is now **iterative VIF pruning** (not a single hand-checked pair), `year` is
+> one-hot encoded into 4 independent periods rather than assumed to trend
+> linearly (lecturer feedback), and an **ablation study** (SES-only vs the
+> Boruta-selected full set, identical rows) replaces v1's bolted-on Step 6 —
+> preserving that comparison as rigorous methodology rather than an
+> afterthought. The result: **mean R² roughly tripled** versus the v1 baseline.
 
 ---
 
@@ -17,145 +19,180 @@
 ```
 step_5_predictive_modeling_explainability/
 ├── README.md
-├── config.yaml
+├── config.yaml              # candidate features, VIF threshold, Boruta params, ablation & display labels
 ├── code/
-│   ├── io_load.py            # load Step-4 data, build X/y/groups (one-hot settlement type)
-│   ├── feature_selection.py  # VIF collinearity + Boruta
-│   ├── modeling.py           # tournament (Ridge/SGD/RF/HGB), GroupKFold CV, HGB tuning
-│   ├── explain.py            # SHAP beeswarms + leaderboard plot
-│   └── run_step5.py          # orchestrator + console report
-├── models/                   # 4 serialized tuned HGB models + leaderboard_cv.csv
-└── graphs/                   # 4 SHAP beeswarms + models_performance.png
+│   ├── io_load.py            # load Step-4 data; translate Hebrew categoricals to English; build X/y/groups
+│   ├── feature_selection.py  # NEW: iterative VIF pruning + Boruta (v1, unchanged)
+│   ├── modeling.py           # tournament + tuned HGB (v1, verbatim — unchanged protocol)
+│   ├── ablation.py           # NEW: SES-only vs Boruta-selected full set, same rows
+│   ├── explain.py            # SHAP, leaderboard, ablation & VIF plots
+│   └── run_step5.py          # orchestrator + comprehensive console report
+├── models/                   # 4 tuned HGB models + VIF/Boruta/ablation/leaderboard CSVs
+└── graphs/                   # VIF pruning, 4 SHAP beeswarms, leaderboard, ablation chart
 ```
 
 Run: `python code/run_step5.py`.
 
 ---
 
-## 2. Rubric → implementation map
+## 2. Collinearity — iterative VIF pruning (v2: handles the whole candidate set)
 
-| Rubric requirement | How Step 5 satisfies it |
+v1 checked exactly one known pair (`cluster` vs `index_value`, r=0.97) by hand.
+With 14 numeric candidates in v2, redundancy could hide anywhere, so this step
+now **repeatedly** computes VIF, drops the single worst offender, and
+**recomputes** — because dropping one feature can resolve another's inflation
+(a naive one-pass cutoff would miss this).
+
+![VIF pruning](graphs/vif_pruning.png)
+
+| Step | Dropped | VIF at drop |
+|---|---|--:|
+| 1 | `teaching_budget_per_student` | 76.57 |
+| 2 | `total_budget_per_student` | 26.28 |
+| 3 | `index_value` | 20.59 |
+
+**12 numeric features survive.** The chart shows *why* iteration matters:
+`cluster` starts at VIF 20.0 (would look collinear on a naive single pass) but
+**survives**, because its inflation was entirely caused by `index_value` — once
+that's dropped, cluster's recomputed VIF falls well under the threshold. This
+correctly identifies `cluster ↔ index_value` as a **mutual** redundant pair and
+keeps the interpretable one, exactly as v1 did by hand — but now discovered
+automatically alongside two *new* redundant budget pairs.
+
+---
+
+## 3. Feature selection — Boruta on the full SES+budget space
+
+Boruta ran **once per target** on the 12 VIF-surviving numeric features + 7
+categoricals (locality_form, district, sector, supervision, legal_status,
+education_stage, **year** → 49 encoded columns total), vs v1's 15-column
+candidate space.
+
+### `year` is now categorical (lecturer feedback)
+
+`year` (2013–2016) was originally fed as a plain number, which implicitly
+assumes each year shifts the outcome by a fixed, linear amount. Per feedback,
+it is now **one-hot encoded into 4 independent columns** (`year_2013` …
+`year_2016`) — each year gets its own effect instead of an assumed trend, the
+same treatment every other categorical (sector, district, …) already gets.
+
+**Result: no individual year-dummy is confirmed by Boruta for any target.**
+Earlier, plain-numeric `year` had been (marginally) confirmed for
+`math_avg_grade` alone. Once split into 4 independently-tested dummies, none
+clears Boruta's relevance bar — evidence that whatever weak year-related signal
+existed was better described as a **mild, gradual drift** across 2013–2016 than
+any single anomalous year. This changed nothing else: every headline result
+below is essentially unchanged, confirming they don't depend on this modeling
+choice either way.
+
+| Target | Boruta-selected features |
 |---|---|
-| **Strict evaluation split** | `GroupKFold(semel)`, 5 folds — every year of a school stays in one fold, so no school-level leakage across our school-year rows. |
-| **Normalisation/standardisation** | `StandardScaler` inside a `Pipeline` for the linear models (Ridge, SGD), re-fit per fold (no leakage). Trees need no scaling. |
-| **Collinearity handling** | **VIF** on numeric candidates: `index_value` (19.4) and `cluster` (19.2) are collinear (r = 0.97) → drop `index_value`, keep the interpretable `cluster`. |
-| **Feature selection (+ why + results)** | **Boruta** (all-relevant RF wrapper), `perc=90`. Isolates `cluster` / `log_population` and **rejects the 12 sparse settlement-type dummies**. |
-| **≥1 model + tuning + CV** | 4-model tournament; champion **HistGradientBoosting** tuned via `RandomizedSearchCV` (25 iters) under GroupKFold. |
-| **Feature importance (SHAP)** | `shap.TreeExplainer` beeswarm per target, saved to `graphs/`. |
-| **Sample balance / imbalance** | Regression targets; the zero-inflated `math_5unit_participation` and skewed clusters are handled **natively by the boosted trees** (no resampling needed); GroupKFold preserves the distribution per fold. See §6. |
+| `math_avg_grade` | cluster, log_population, tuition/perimeter/projects/purchases/transport per student, nurture_quintile, avg_class_size, log_school_size, **supervision_Haredi** |
+| `english_avg_grade` | + private_hours_per_student, special_ed_share, **district_North**, **sector_Bedouin** |
+| `math_5unit_participation` | cluster, log_population, tuition/perimeter/projects/purchases/transport per student, nurture_quintile, avg_class_size, log_school_size, **district_North**, **sector_Jewish** |
+| `english_5unit_participation` | + private_hours_per_student, **sector_Jewish**, **supervision_Haredi** |
+
+**Five budget ratios are confirmed for every single target**
+(`tuition_per_student`, `perimeter_per_student`, `projects_per_student`,
+`purchases_per_student`, `transport_per_student`) — a much richer, more stable
+selection story than v1's "cluster + population, sometimes +year." Boruta also
+confirms specific **sector/supervision/district** dummies per target — school
+structural identity carries real, independent signal beyond municipal cluster.
+
+Full per-target detail: `models/boruta_report.csv`.
 
 ---
 
-## 3. Data & features
+## 4. Modeling tournament & tuned champion
 
-- **Rows:** 3,662 school-years (Step-4 cleaned set, 35 consensus outliers excluded).
-- **Groups:** ~920–1,000 distinct schools (`semel`) per target.
-- **Candidate predictors (municipal / socioeconomic only):** `cluster`,
-  `log_population`, `year`, and one-hot `locality_form` (12 CBS settlement-type
-  codes). `index_value` dropped for collinearity.
-- **Targets (4, regression):** `math_avg_grade`, `english_avg_grade`,
-  `math_5unit_participation`, `english_5unit_participation`.
+Same protocol as v1 — GroupKFold(`semel`), 4-model tournament, HGB tuned via
+RandomizedSearchCV — run on each target's Boruta-selected features.
 
-Restricting predictors to municipal SES features is deliberate — it is exactly
-what the research question asks (*SES alone*), so the resulting R² **is** the
-answer, not a limitation to engineer around.
+![leaderboard](graphs/models_performance.png)
 
----
-
-## 4. Feature selection results (Boruta, perc = 90)
-
-| Target | Boruta-confirmed | Used for models |
-|---|---|---|
-| `math_avg_grade` | `log_population` | log_population, cluster, year |
-| `english_avg_grade` | **`cluster`, `log_population`** | cluster, log_population |
-| `math_5unit_participation` | `log_population` | log_population, cluster, year |
-| `english_5unit_participation` | **`cluster`, `log_population`** | cluster, log_population |
-
-**Key insight:** Boruta confirms **`cluster` for the English targets but not for
-the Math targets** (where only population survives, cluster ranking #2). This
-*independently corroborates* the Step-4 finding that **Math is more resilient to
-socioeconomic status** — the SES cluster is simply a weaker signal for Math.
-In every case the 12 settlement-type dummies are rejected as noise.
-
----
-
-## 5. Cross-validated leaderboard (GroupKFold by school)
-
-### Champion — tuned HistGradientBoosting (final models, serialized in `models/`)
+### Final leaderboard — tuned HistGradientBoosting
 
 | Target | R² | RMSE | MAE |
 |---|--:|--:|--:|
-| `english_5unit_participation` | **0.192** | 0.245 | 0.194 |
-| `english_avg_grade` | **0.150** | 5.986 | 4.535 |
-| `math_avg_grade` | 0.094 | 7.188 | 5.600 |
-| `math_5unit_participation` | 0.056 | 0.101 | 0.080 |
+| **english_5unit_participation** | **0.545** | 0.178 | 0.129 |
+| `math_avg_grade` | 0.431 | 5.274 | 4.060 |
+| `english_avg_grade` | 0.428 | 4.584 | 3.502 |
+| `math_5unit_participation` | 0.421 | 0.079 | 0.056 |
 
-### Full tournament (untuned CV R², `graphs/models_performance.png`)
-
-| Model | math_grade | eng_grade | math_5u | eng_5u |
-|---|--:|--:|--:|--:|
-| HistGradientBoosting | 0.048 | 0.068 | −0.060 | 0.092 |
-| Ridge | 0.033 | 0.085 | 0.048 | 0.118 |
-| SGD (linear SVM) | 0.031 | 0.087 | 0.047 | 0.119 |
-| RandomForest | −0.049 | −0.022 | −0.177 | 0.011 |
-| **HGB tuned (champion)** | **0.094** | **0.150** | **0.056** | **0.192** |
-
-**Reading the board:**
-- **Tuning matters:** untuned HGB is mediocre, but a shallow, strongly-regularised
-  tuned HGB (`max_depth 3`, `learning_rate 0.02`, `l2≥0.1`) wins every target.
-- **Regularised linear models (Ridge/SGD) are strong** and beat the heavier
-  RandomForest everywhere — the SES→outcome relationship is smooth and nearly
-  monotonic, so deep bagged trees mostly overfit (negative R²).
-- **English > Math** and **participation ≈ grade** in predictability: the most
-  SES-predictable outcome is *English advanced-track selection* (R² 0.19); the
-  least is *Math advanced participation* (R² 0.06).
+All four untuned models now score **positive R² across the board** (v1's
+RandomForest went negative on the 4-feature SES-only space) — the richer
+feature set gives every model family real signal to work with.
 
 ---
 
-## 6. Sample balance / imbalance
+## 5. 🎯 Ablation study — does the budget dataset add information beyond SES?
 
-These are regression targets, so "imbalance" means distribution skew rather than
-class imbalance:
-- `math_5unit_participation` is **zero-inflated** (many schools offer no 5-unit
-  Math). Boosted trees model the spike at 0 natively; no resampling applied.
-- Socioeconomic **clusters are uneven** (cluster 2 over-represented, cluster 9
-  rare, cluster 10 absent). GroupKFold preserves this mix across folds; we report
-  the elite tail (cluster 9, n≈41) as indicative.
+This is the direct, rigorous replacement for v1's bolted-on Step 6. For every
+target we tune HistGradientBoosting **twice on IDENTICAL rows**: once on the
+original v1 feature set (`cluster`, `log_population`, `locality_form`, and
+`year` — one-hot, see §3 — the **"SES only"** arm) and once on whatever Boruta
+selected from the full SES+budget space (the **"SES + Budget"** arm). Same
+rows, same GroupKFold folds, same tuning protocol — so the R² delta is
+attributable **only** to the extra information.
 
----
+![ablation](graphs/ablation_before_after.png)
 
-## 7. SHAP explainability (`graphs/shap_beeswarm_*.png`)
+| Target | SES only | **SES + Budget** | **ΔR²** |
+|---|--:|--:|--:|
+| `math_avg_grade` | 0.138 | **0.458** | **+0.320** |
+| `english_avg_grade` | 0.199 | **0.455** | **+0.256** |
+| `math_5unit_participation` | 0.058 | **0.439** | **+0.381** |
+| `english_5unit_participation` | 0.229 | **0.549** | **+0.321** |
 
-Beeswarms from the tuned champion confirm the story directionally: **higher
-`cluster` pushes English grade and English 5-unit participation up** (wealthier
-localities → more advanced English), with `log_population` second. For Math, the
-SHAP spread is flatter and population-led — visual confirmation of Math's weaker
-SES dependence.
-
----
-
-## 8. Headline answer to the research question
-
-**Municipal socioeconomic status alone is a weak-to-moderate predictor of school
-outcomes.** It explains up to ~19 % of the variance in *English advanced-track
-selection* and ~15 % in *English grades*, but only ~6–9 % for Math. The clear,
-reproducible asymmetry — **SES predicts English far better than Math, and
-selection better than raw grades** — is the project's central, defensible
-finding, and it is corroborated three independent ways (Step-4 cluster gaps,
-Boruta confirmation, and SHAP).
+**Mean ΔR² across the four targets: +0.320.** Every target's explanatory power
+**more than doubled** (and `math_5unit_participation` grew nearly **8×**). This
+is decisively larger than the old bolted-on Step 6's ablation (+0.132) — because
+the full v2 feature space includes not just budget ratios but school-level
+**sector, supervision, and district**, which Boruta confirms carry real,
+independent predictive signal.
 
 ---
 
-## 9. Step 5 verification checklist
+## 6. SHAP explainability
 
-- [x] GroupKFold(semel) CV — no school-level leakage.
-- [x] Standardisation in-pipeline for linear models.
-- [x] Collinearity handled via VIF (dropped `index_value`).
-- [x] Boruta feature selection run + reported (cluster/population vs noise dummies).
-- [x] 4-model tournament + HGB tuned with RandomizedSearchCV.
-- [x] RMSE / MAE / R² leaderboard compiled (`models/leaderboard_cv.csv` + table above).
-- [x] SHAP beeswarms saved for all 4 targets + leaderboard plot.
-- [x] 4 tuned models serialized to `models/*.joblib`.
-- [x] Mandated methods banked: **SGD** (modeling), **Boruta** (selection), **SHAP** (explainability).
+![SHAP example](graphs/shap_beeswarm_math_5unit_participation.png)
 
-**Status: Step 5 complete ✔.**
+For `math_5unit_participation` — the target least explained by SES alone in v1
+— the top SHAP features are `nurture_quintile`, `log_school_size`, and
+`transport_per_student`, with `district_North` and `avg_class_size` also
+ranking above `cluster`. **Institutional/school-level attributes outrank
+municipal wealth** for explaining who enters advanced Math — direct, visual
+confirmation of the ablation result.
+
+---
+
+## 7. Headline answer to the (new) research question
+
+**Municipal socioeconomic status alone is a weak-to-moderate predictor**
+(R² 0.06–0.23), consistent with v1. **Adding school-level institutional
+resources — budget, class size, sector, supervision, district — roughly
+triples explanatory power** (R² 0.42–0.55). The variance municipal SES cannot
+explain is not noise: a large share of it is **institutional and structural
+school identity**, which this pipeline now captures from the start rather than
+as an afterthought.
+
+---
+
+## 8. Step 5 verification checklist
+
+- [x] Iterative VIF pruning run on the full 15-candidate numeric set; 3 dropped
+      (2 new budget redundancies + the known cluster/index_value pair), with the
+      mutual-pair logic demonstrated visually.
+- [x] `year` treated as 4 one-hot categories, not a linear trend (lecturer
+      feedback); Boruta confirms none individually — headline results unchanged.
+- [x] Boruta run per target on the full 49-column SES+budget space; ≥11 features
+      confirmed per target (vs v1's 2–3).
+- [x] 4-model tournament + tuned HGB champion; GroupKFold(semel) throughout.
+- [x] Ablation study: SES-only vs Boruta-selected full set, identical rows,
+      identical protocol; mean ΔR² = +0.320.
+- [x] SHAP beeswarms for all 4 targets; Hebrew categorical labels translated to
+      English for readability (matplotlib RTL rendering issue caught and fixed).
+- [x] 4 tuned models + VIF/Boruta/ablation/leaderboard CSVs saved.
+
+**Status: Step 5 complete ✔ — awaiting signal for Phase 6 (root docs, research
+question, deck updates).**

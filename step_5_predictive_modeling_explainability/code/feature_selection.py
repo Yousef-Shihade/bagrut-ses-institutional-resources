@@ -1,15 +1,20 @@
 """
-feature_selection.py — collinearity (VIF) + Boruta selection.
+feature_selection.py — collinearity (iterative VIF) + Boruta selection (v2).
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
 Authors: Yousef Shehade & Shada Esawi
 
 Two rubric items:
-  * "features exploration and handling – collinearity": VIF on the numeric
-    candidates exposes the cluster <-> index_value redundancy (r = 0.97); we then
-    drop index_value and keep `cluster`.
-  * "Generate feature selection": Boruta (all-relevant wrapper around a Random
-    Forest) isolates the stable municipal predictors per target.
+  * "features exploration and handling – collinearity": v1 checked one known
+    pair (cluster vs index_value, r=0.97) and dropped index_value by hand. v2's
+    candidate set is much larger (15 numeric features), so collinearity handling
+    is now an ITERATIVE procedure: compute VIF for all candidates, drop the
+    single worst offender, recompute, repeat until every remaining feature is
+    below the threshold. This is standard practice and scales to any candidate
+    count without requiring a human to spot every redundant pair by eye.
+  * "Generate feature selection": Boruta (all-relevant RF wrapper) is unchanged
+    from v1 — it now runs on the full VIF-pruned SES+budget candidate set.
 """
 from __future__ import annotations
 
@@ -27,20 +32,45 @@ for _a, _t in [("float", float), ("int", int), ("bool", bool), ("object", object
 from boruta import BorutaPy  # noqa: E402
 
 
-def compute_vif(df: pd.DataFrame, cfg: dict[str, Any]) -> pd.DataFrame:
-    """VIF for the numeric candidate features (incl. the collinear index_value)."""
-    cols = cfg["collinearity"]["vif_features"]
-    X = df[cols].dropna().astype(float)
-    X = X.assign(_const=1.0)  # intercept so VIF is well-defined
-    vif = []
-    for i, c in enumerate(X.columns):
+def _vif_table(X: pd.DataFrame) -> pd.DataFrame:
+    """VIF for every column in X (X must be numeric, complete-case, with intercept)."""
+    Xc = X.assign(_const=1.0)
+    rows = []
+    for i, c in enumerate(Xc.columns):
         if c == "_const":
             continue
-        vif.append({"feature": c, "VIF": variance_inflation_factor(X.values, i)})
-    out = pd.DataFrame(vif).sort_values("VIF", ascending=False).reset_index(drop=True)
-    out["flag"] = np.where(out["VIF"] >= cfg["collinearity"]["vif_threshold"],
-                           "HIGH (collinear)", "ok")
-    return out
+        rows.append({"feature": c, "VIF": variance_inflation_factor(Xc.values, i)})
+    return pd.DataFrame(rows).sort_values("VIF", ascending=False).reset_index(drop=True)
+
+
+def iterative_vif_prune(df: pd.DataFrame, candidates: list[str],
+                        threshold: float = 5.0) -> dict[str, Any]:
+    """Repeatedly drop the highest-VIF feature until all remaining are below
+    ``threshold`` (or 2 features remain, the minimum needed for a meaningful VIF).
+
+    Returns: kept, dropped (in drop order), history (VIF table at each step),
+    initial_vif (the first full table, for reporting).
+    """
+    remaining = list(candidates)
+    X = df[remaining].dropna().astype(float)
+
+    history: list[dict[str, Any]] = []
+    dropped: list[str] = []
+    initial_vif = _vif_table(X[remaining]) if len(remaining) > 1 else pd.DataFrame()
+
+    while len(remaining) > 2:
+        vif = _vif_table(X[remaining])
+        worst = vif.iloc[0]
+        if worst["VIF"] < threshold:
+            break
+        history.append({"step": len(dropped) + 1, "dropped_feature": worst["feature"],
+                        "VIF_at_drop": float(worst["VIF"]), "remaining_after": len(remaining) - 1})
+        remaining.remove(worst["feature"])
+        dropped.append(worst["feature"])
+
+    final_vif = _vif_table(X[remaining]) if len(remaining) > 1 else pd.DataFrame()
+    return {"kept": remaining, "dropped": dropped, "history": pd.DataFrame(history),
+            "initial_vif": initial_vif, "final_vif": final_vif, "threshold": threshold}
 
 
 def run_boruta(X: pd.DataFrame, y: pd.Series, cfg: dict[str, Any]) -> dict[str, Any]:
@@ -61,8 +91,8 @@ def run_boruta(X: pd.DataFrame, y: pd.Series, cfg: dict[str, Any]) -> dict[str, 
     ranking = dict(zip(cols.tolist(), boruta.ranking_.tolist()))
 
     # Features actually used downstream: the top Boruta tier (rank 1 = confirmed).
-    # If <2 reach rank 1, keep the 3 best-ranked so the SES variable (cluster) is
-    # always retained — never the 12 sparse settlement-type dummies.
+    # If <2 reach rank 1, keep the 3 best-ranked so at least one SES variable
+    # (cluster) is always retained rather than modeling on zero features.
     rank1 = [c for c in cols.tolist() if ranking[c] == 1]
     if len(rank1) >= 2:
         selected = rank1

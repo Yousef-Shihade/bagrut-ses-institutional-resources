@@ -1,17 +1,21 @@
 # =============================================================================
-# BagrutProject — Step 5 Configuration
-# High-Performance Predictive Modeling & Explainability
-# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
+# BagrutProject v2 — Step 5 Configuration
+# Predictive Modeling, Feature Selection & Explainability
+# Project: Predicting Bagrut Success from Municipal Socioeconomics and
+#          School-Level Institutional Resources
 # Authors: Yousef Shehade & Shada Esawi
 #
-# Built to the Presentation 3+4 rubric: feature selection (+ rationale/results),
-# collinearity handling, normalisation, ≥1 tuned model with CV, and feature
-# importance (SHAP). CV uses GroupKFold(semel) to stop a school's multiple years
-# leaking across train/test folds.
+# v2 CHANGE: Boruta now selects among the FULL 23-candidate feature space (SES +
+# budget), not just 4 municipal features. VIF collinearity handling is now
+# ITERATIVE (repeatedly drop the highest-VIF feature until all are below
+# threshold) since the larger numeric set may hide more than one redundant pair.
+# An ABLATION study (SES-only vs the Boruta-selected full set, same rows) is
+# folded in as a Step-5 subsection — this preserves the old "Step 6" before/after
+# budget story as rigorous methodology instead of a bolted-on extension.
 # =============================================================================
 
 project:
-  title: "Predicting Israeli High School Bagrut Success Using Socioeconomic Data"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
     - "Yousef Shehade"
     - "Shada Esawi"
@@ -19,54 +23,115 @@ project:
 seed: 42
 
 paths:
-  cleaned_in:  "../step_4_preprocessing_outliers_imputation_experiment/data/cleaned_modeling_ready.csv"
-  out_models:  "models"
-  out_graphs:  "graphs"
+  cleaned_in:      "../step_4_preprocessing_outliers_imputation_experiment/data/cleaned_modeling_ready.csv"
+  out_models:      "models"
+  out_graphs:      "graphs"
   leaderboard_out: "models/leaderboard_cv.csv"
+  vif_out:         "models/vif_report.csv"
+  boruta_out:      "models/boruta_report.csv"
+  ablation_out:    "models/ablation_before_after.csv"
 
 io:
   encoding: "utf-8-sig"
 
-# --- The four prediction targets (all regression) ---------------------------
 targets:
   - "math_avg_grade"
   - "english_avg_grade"
   - "math_5unit_participation"
   - "english_5unit_participation"
 
-# --- Predictors (strictly municipal / socioeconomic, per the research question)
+# --- Predictors: the FULL v2 candidate space (SES + school-level budget) ----
 features:
-  group_col: "semel"            # GroupKFold groups (a school's rows stay together)
-  # Numeric candidates kept after collinearity handling (see collinearity block).
-  numeric: ["cluster", "log_population", "year"]
-  # Low-cardinality CBS settlement-type code -> one-hot encoded.
-  categorical: ["locality_form"]
-  # Exclude the 35 consensus outliers flagged in Step 4 from the modeling set.
+  group_col: "semel"
+  numeric:
+    - "cluster"
+    - "log_population"
+    - "total_budget_per_student"
+    - "teaching_budget_per_student"
+    - "tuition_per_student"
+    - "perimeter_per_student"
+    - "projects_per_student"
+    - "purchases_per_student"
+    - "transport_per_student"
+    - "private_hours_per_student"
+    - "nurture_quintile"
+    - "avg_class_size"
+    - "special_ed_share"
+    - "log_school_size"
+  categorical:
+    - "locality_form"
+    - "district"
+    - "sector"
+    - "supervision"
+    - "legal_status"
+    - "education_stage"
+    # year is 4 discrete exam periods (2013-2016), not a continuous quantity —
+    # one-hot encoding lets each year have its own independent effect instead of
+    # assuming a fixed linear trend per year (lecturer feedback).
+    - "year"
   exclude_outlier_flag: "outlier_consensus"
 
+# --- Collinearity: iterative VIF pruning (extends v1's single-pair check) ---
 collinearity:
-  # cluster and index_value are near-duplicates (Pearson r = 0.973). We report VIF
-  # on this numeric set, then DROP index_value and keep `cluster` (the headline,
-  # interpretable 1-10 SES variable) for all downstream models.
-  vif_features: ["cluster", "index_value", "log_population", "year"]
-  drop_for_collinearity: ["index_value"]
+  # index_value is included here (not in features.numeric above) purely to
+  # DEMONSTRATE the cluster/index_value redundancy (r=0.97) established in v1 —
+  # it is never a modeling candidate. Pruning runs on features.numeric + this.
+  vif_features_extra: ["index_value"]
   vif_threshold: 5.0
 
-# --- Feature selection (Boruta) ---------------------------------------------
+# --- Feature selection (Boruta) — same method/params as v1, larger input -----
 feature_selection:
   method: "boruta"
   boruta_max_iter: 100
   boruta_estimators: 200
-  # perc=100 (vs the MAX shadow) is very strict and confirms nothing on this
-  # weak-but-real SES signal; perc=90 (vs the 90th-pct shadow) is the standard
-  # relaxation and cleanly confirms cluster/population while rejecting the 12
-  # sparse settlement-type dummies.
   boruta_perc: 90
 
-# --- Modeling tournament -----------------------------------------------------
+# --- Modeling tournament (unchanged protocol from v1) ------------------------
 modeling:
   cv_splits: 5
-  # Champion family that is tuned with RandomizedSearchCV.
   champion: "hist_gradient_boosting"
   tuning_iter: 25
-  shap_sample: 1500             # rows sampled for SHAP beeswarm (speed/clarity)
+  shap_sample: 1500
+
+# --- Ablation study: SES-only baseline vs Boruta-selected full set ----------
+# Same feature definitions v1 used as its ENTIRE model — now the "before" arm
+# of a same-rows comparison against whatever Boruta selects from the full
+# SES+budget space (the "after" arm). This answers "did the budget dataset add
+# information beyond the original 2-dataset question?" as a rigorous ablation,
+# not a bolted-on Step 6.
+ablation:
+  baseline_numeric: ["cluster", "log_population"]
+  baseline_categorical: ["locality_form", "year"]
+
+# English display labels for Hebrew categorical VALUES. Applied before one-hot
+# encoding so every downstream artifact (Boruta report, SHAP plots, ablation
+# feature lists) shows readable dummy-column names — matplotlib renders
+# right-to-left Hebrew reversed (e.g. "צפון" -> "ןופצ"), which would otherwise
+# corrupt every axis label and CSV column name derived from these categoricals.
+display_labels:
+  sector:
+    "יהודי": "Jewish"
+    "ערבי": "Arab"
+    "בדואי": "Bedouin"
+    "דרוזי": "Druze"
+  supervision:
+    "ממלכתי": "State"
+    "ממלכתי דתי": "State-religious"
+    "חרדי": "Haredi"
+  district:
+    "ירושלים": "Jerusalem"
+    "תל אביב": "TelAviv"
+    "מרכז": "Center"
+    "צפון": "North"
+    "דרום": "South"
+    "חיפה": "Haifa"
+  legal_status:
+    "רשמי": "Official"
+    "מוכר": "Recognised"
+    "תרבותי-ייחודי": "CulturallyUnique"
+  education_stage:
+    'חט"ב בלבד': "MiddleOnly"
+    'חט"ב ועליונה': "MiddleAndUpper"
+    "יסודי בלבד": "ElementaryOnly"
+    "יסודי ועליונה": "ElementaryAndUpper"
+    "עליונה בלבד": "UpperOnly"
