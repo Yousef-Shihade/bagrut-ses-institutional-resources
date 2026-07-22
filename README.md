@@ -68,6 +68,40 @@ We model four school-level targets: **average Bagrut grade** and **5-unit
 
 ---
 
+## ✅ Direct Answers to the Research Questions
+
+> Full evidence, methodology, and numbers for every answer below are in the
+> [Modeling Leaderboard](#-modeling-leaderboard), [Ablation Study](#-ablation-study--does-institutional-funding-add-information-beyond-ses),
+> and [Final Takeaways](#-final-takeaways) sections further down, and in the
+> Step 4 / Step 5 READMEs linked inline.
+
+**Main — Yes.** Municipal socioeconomic status and school-level institutional
+resources, **combined**, meaningfully predict Bagrut outcomes: cross-validated
+R² of **0.42–0.55** across all four targets, versus **0.06–0.23** for municipal
+SES alone — a **~3× mean improvement** (ΔR² = +0.320). See the
+[Modeling Leaderboard](#-modeling-leaderboard) and [Ablation Study](#-ablation-study--does-institutional-funding-add-information-beyond-ses).
+
+**Secondary A — Math is the more resilient subject**, and yes, low-SES
+overachiever schools exist. Going from the poorest to the wealthiest municipal
+cluster, Math's performance gap is smaller than English's on both grade
+(6.18 pts, d=0.91 vs 6.45 pts, d=1.16) and advanced-track participation (0.115
+vs 0.367). Separately, **87 of 460 (18.9%) low-SES schools** match or beat the
+elite-cluster median grade, with significantly higher advanced-track
+participation (p < 0.0001 for both subjects). Full detail:
+[Step 4 README, Task C](step_4_preprocessing_outliers_imputation_experiment/README.md#4-task-c--exploratory-questions-unchanged-from-v1).
+
+**Secondary B — Per-student budget ratios and the Ministry's own school-level
+disadvantage ranking, independent of municipal wealth.** Five budget ratios
+(tuition, perimeter, projects, purchases, and transport per student) are
+confirmed by Boruta for **every** target, and `nurture_quintile` — the
+Ministry's school-level (not municipal) disadvantage ranking — is the single
+most influential SHAP feature for all four targets, ahead of municipal
+cluster every time. School **sector**, **supervision type**, and **district**
+also carry confirmed, target-specific signal. Full detail:
+[Step 5 README, §3 and §6](step_5_predictive_modeling_explainability/README.md#3-feature-selection--boruta-on-the-full-sesbudget-space).
+
+---
+
 ## 🏗 Pipeline Architecture
 
 The project is organised as **five isolated, self-contained, sequential
@@ -229,7 +263,7 @@ full SES+Budget feature set.
 
 ---
 
-## 🎓 Executive Scientific Takeaway
+## 🏁 Final Takeaways
 
 Across three independent methods — **iterative VIF/collinearity analysis**,
 **Boruta feature confirmation**, and **SHAP attribution** — the same picture
