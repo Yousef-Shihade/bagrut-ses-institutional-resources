@@ -16,6 +16,41 @@
 
 ---
 
+## 📜 Project Evolution
+
+This project began with a narrower goal: to test whether a municipality's
+socioeconomic status **alone** could predict a high school's Bagrut
+(matriculation) outcomes, using two data sources — Israeli Bagrut exam
+records and the Central Bureau of Statistics' municipal socioeconomic index.
+That first iteration built a complete five-stage pipeline (ingestion,
+record linkage, feature engineering, preprocessing, and modeling) and
+produced a working, cross-validated answer: municipal status alone is a
+real but modest predictor of school performance.
+
+While reviewing those results, we identified a clear limitation — a
+municipality-level score cannot capture what actually happens inside a
+specific school, such as its budget, staffing, class sizes, or
+institutional profile. We located a third public data source, the Israeli
+Ministry of Education's school-level budget and institutional report, and
+tested whether incorporating it would add genuine explanatory power. It
+did — substantially: models trained with school-level institutional data
+alongside municipal socioeconomic data explained roughly three times more
+variance in Bagrut outcomes than municipal status alone. Given the size of
+that improvement, we made the decision to rebuild the pipeline so that all
+**three** datasets are integrated from the very first stage, rather than
+treating the third dataset as a late addition to an already-finished
+analysis.
+
+The current `main` branch reflects only this integrated, three-dataset
+version of the project — it is the version described throughout this
+README and the one intended for evaluation. The original two-dataset
+pipeline is preserved in full, exactly as it was built and run, on the
+[`archive/v1-two-dataset-pipeline`](https://github.com/Yousef-Shihade/bagrut-ses-institutional-resources/tree/archive/v1-two-dataset-pipeline)
+branch, for anyone who wants to see the earlier analysis or compare the
+two approaches directly.
+
+---
+
 ## 🎯 Research Questions
 
 1. **Main:** Can municipal socioeconomic status and school-level institutional
@@ -128,9 +163,10 @@ set, which won every target.
 | `english_avg_grade` | 0.428 | 4.584 | 3.502 |
 | `math_5unit_participation` | 0.421 | 0.079 | 0.056 |
 
-> 🥇 Every model family scores **positive R² across the board** on the richer
-> v2 feature space (in the earlier SES-only design, RandomForest went
-> negative on just 4 features).
+> 🥇 Every model family scores **positive R² across the board** on this
+> feature set — even RandomForest, typically the most overfit-prone model on
+> a narrow feature space, performs solidly here (see the ablation study below
+> for how much the SES+Budget feature set adds over SES alone).
 
 ---
 

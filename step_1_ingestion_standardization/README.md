@@ -159,4 +159,4 @@ observed cells only.
 - [x] 5/5 plots saved; Hebrew labels mapped to English for readability.
 - [x] Three cached CSVs written (`utf-8-sig`).
 
-**Status: Step 1 complete ✔ — awaiting signal to begin Step 2 (three-way merge).**
+**Status: Step 1 complete ✔**

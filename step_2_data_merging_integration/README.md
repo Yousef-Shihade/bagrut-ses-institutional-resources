@@ -138,4 +138,4 @@ finding to carry forward:
 - [x] Full audit log (`city_mapping_log.csv`) preserved for every city decision.
 - [x] 3/3 plots saved.
 
-**Status: Step 2 complete ✔ — awaiting signal to begin Step 3 (feature engineering).**
+**Status: Step 2 complete ✔**

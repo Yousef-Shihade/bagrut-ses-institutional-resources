@@ -193,5 +193,4 @@ this pipeline captures from the start rather than as an afterthought.
       English for readability (matplotlib RTL rendering issue caught and fixed).
 - [x] 4 tuned models + VIF/Boruta/ablation/leaderboard CSVs saved.
 
-**Status: Step 5 complete ✔ — awaiting signal for Phase 6 (root docs, research
-question, deck updates).**
+**Status: Step 5 complete ✔**

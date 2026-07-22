@@ -138,5 +138,4 @@ both deserve attention in Step 5's collinearity analysis.
 - [x] 4/4 plots saved.
 - [x] `school_level_features_targets.csv` (3,731 × 45) written.
 
-**Status: Step 3 complete ✔ — awaiting signal to begin Step 4 (preprocessing,
-outliers, multi-iteration MICE robustness).**
+**Status: Step 3 complete ✔**

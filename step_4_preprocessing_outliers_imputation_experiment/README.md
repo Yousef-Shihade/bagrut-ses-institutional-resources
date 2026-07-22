@@ -112,5 +112,4 @@ participation is significantly higher (Math p=1.4e-05, English p=1.4e-11).
 - [x] 4/4 plots saved.
 - [x] `cleaned_modeling_ready.csv` (3,731 × 54) written.
 
-**Status: Step 4 complete ✔ — awaiting signal to begin Step 5 (modeling, ablation,
-Boruta, SHAP).**
+**Status: Step 4 complete ✔**
