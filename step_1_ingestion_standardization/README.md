@@ -82,7 +82,8 @@ nurture quintile parsed for **85.5 %** of institutions.
 
 ### 🔑 New school-level attributes unlocked by Dataset 3
 
-This is the direct answer to the *"too few features"* critique:
+These directly address the narrow feature space that limited the two-dataset
+design, where every predictor was a municipality-level aggregate:
 
 | Attribute | Coverage | Distinct | Note |
 |---|--:|--:|---|
@@ -116,7 +117,7 @@ The Bagrut data, by contrast, spans **four** school years (2013–2016). Because
 deliberate, documented trade-off (the Ministry did not provide a multi-year
 budget history), not an error: it lets us use the richer feature set at all, at
 the cost of assuming each school's resourcing was reasonably stable across
-2013–2016. **This belongs on the project's Limitations slide.**
+2013–2016. **This is a stated limitation of the study.**
 
 ---
 

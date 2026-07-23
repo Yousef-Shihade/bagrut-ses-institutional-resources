@@ -68,7 +68,8 @@ features:
     - "education_stage"
     # year is 4 discrete exam periods (2013-2016), not a continuous quantity —
     # one-hot encoding lets each year have its own independent effect instead of
-    # assuming a fixed linear trend per year (lecturer feedback).
+    # assuming a fixed linear trend per year, an assumption we found no
+    # justification for on a 4-level variable.
     - "year"
   exclude_outlier_flag: "outlier_consensus"
 

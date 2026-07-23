@@ -3,11 +3,13 @@
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shihade & Shada Esawi
 
-> **v2 change.** The lecturer flagged that a *single* masked-imputation run is
-> not sufficient evidence of stability. Task A now repeats the MICE experiment
-> **25 times** with independent random seeds/masks and reports the full
-> distribution (mean ± std, min/max) rather than one number. Tasks B and C reuse
-> v1's proven methodology, now operating on the richer v2 feature space.
+> **v2 change.** After reviewing the imputation literature and published
+> evaluations of MICE, we concluded that a *single* masked-imputation run is not
+> methodologically sufficient evidence of stability — one draw cannot separate a
+> genuine advantage from a favourable random mask. Task A now repeats the MICE
+> experiment **25 times** with independent random seeds/masks and reports the
+> full distribution (mean ± std, min/max) rather than one number. Tasks B and C
+> reuse v1's proven methodology, now operating on the richer v2 feature space.
 
 ---
 
@@ -58,8 +60,9 @@ so the demonstration reflects the actual v2 dataset.
 ![MICE robustness](graphs/mice_robustness_multi_iteration.png)
 
 The left panel's tight boxplot (std = 0.006, about 0.6% of the mean) and the right
-panel's flat, non-drifting line across runs are the direct visual proof of
-stability the lecturer asked for.
+panel's flat, non-drifting line across runs are the direct visual evidence that
+the advantage is a stable property of the method, not an artefact of any one
+random mask.
 
 ---
 

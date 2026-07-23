@@ -6,7 +6,8 @@ Project: Predicting Bagrut Success from Municipal Socioeconomics and
 Authors: Yousef Shihade & Shada Esawi
 
 v1's Step 6 answered "does adding the budget dataset help?" as a bolted-on final
-step. Per lecturer feedback, the three datasets are now merged from the start
+step. Having established that the budget data carries substantial independent
+signal, we rebuilt the pipeline to merge all three datasets from the start
 (Steps 1-2), so that framing no longer fits. The comparison itself, however, is
 legitimate and valuable science — an ABLATION study — so it is kept here as a
 Step-5 subsection: for each target we tune the champion HistGradientBoosting

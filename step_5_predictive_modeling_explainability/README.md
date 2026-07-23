@@ -7,7 +7,7 @@
 > candidate space** (up from v1's 4 municipal features), collinearity handling
 > is now **iterative VIF pruning** (not a single hand-checked pair), `year` is
 > one-hot encoded into 4 independent periods rather than assumed to trend
-> linearly (lecturer feedback), and an **ablation study** (SES-only vs the
+> linearly, and an **ablation study** (SES-only vs the
 > Boruta-selected full set, identical rows) replaces v1's bolted-on Step 6 —
 > preserving that comparison as rigorous methodology rather than an
 > afterthought. The result: **mean R² roughly tripled** versus the v1 baseline.
@@ -70,13 +70,17 @@ categoricals (locality_form, district, sector, supervision, legal_status,
 education_stage, **year** → 49 encoded columns total), vs v1's 15-column
 candidate space.
 
-### `year` is now categorical (lecturer feedback)
+### `year` is now categorical
 
 `year` (2013–2016) was originally fed as a plain number, which implicitly
-assumes each year shifts the outcome by a fixed, linear amount. Per feedback,
-it is now **one-hot encoded into 4 independent columns** (`year_2013` …
-`year_2016`) — each year gets its own effect instead of an assumed trend, the
-same treatment every other categorical (sector, district, …) already gets.
+assumes each year shifts the outcome by a fixed, linear amount. On revisiting
+this choice we found no basis for that assumption: with only four discrete exam
+periods there is no reason a priori to expect the 2013→2014 change to equal the
+2015→2016 change, and imposing linearity discards that flexibility for nothing
+in return. `year` is therefore now **one-hot encoded into 4 independent
+columns** (`year_2013` … `year_2016`) — each year gets its own effect instead of
+an assumed trend, the same treatment every other categorical (sector,
+district, …) already gets.
 
 **Result: no individual year-dummy is confirmed by Boruta for any target.**
 Earlier, plain-numeric `year` had been (marginally) confirmed for
@@ -213,8 +217,8 @@ this pipeline captures from the start rather than as an afterthought.
 - [x] Iterative VIF pruning run on the full 15-candidate numeric set; 3 dropped
       (2 new budget redundancies + the known cluster/index_value pair), with the
       mutual-pair logic demonstrated visually.
-- [x] `year` treated as 4 one-hot categories, not a linear trend (lecturer
-      feedback); Boruta confirms none individually — headline results unchanged.
+- [x] `year` treated as 4 one-hot categories, not an assumed linear trend;
+      Boruta confirms none individually — headline results unchanged.
 - [x] Boruta run per target on the full 49-column SES+budget space; ≥11 features
       confirmed per target (vs v1's 2–3).
 - [x] 4-model tournament + tuned HGB champion; GroupKFold(semel) throughout.

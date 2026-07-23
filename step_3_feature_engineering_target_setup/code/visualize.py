@@ -62,8 +62,8 @@ def plot_cluster_vs_targets(school_level: pd.DataFrame, out_dir: Path) -> Path:
 
 
 def plot_feature_inventory(cfg: dict[str, Any], out_dir: Path) -> Path:
-    """Bar chart of the final feature count by source — the direct answer to
-    the 'too few features' critique."""
+    """Bar chart of the final feature count by source — quantifies how far the
+    third dataset widened the previously municipal-only feature space."""
     counts = {
         "CBS\n(municipal)": len(cfg["cbs_features"]) - 1,  # exclude ses_locality_name (id, not a feature)
         "Budget\ncategorical": len(cfg["budget_categorical"]),

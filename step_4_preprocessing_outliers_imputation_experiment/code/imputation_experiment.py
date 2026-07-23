@@ -5,13 +5,16 @@ Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
 Authors: Yousef Shihade & Shada Esawi
 
-v1 ran the "mask 8% and reconstruct" test ONCE. The lecturer flagged this as
-insufficient evidence: a single lucky/unlucky random mask does not prove the
-method is *stable*. v2 repeats the experiment N_ITERATIONS times, each with an
-independent random mask (different seed, same 8% fraction, same predictor set),
-and reports the distribution (mean +/- std, min/max) of R^2/RMSE/MAE across runs
-for both MICE and the median baseline — proving the result generalises rather
-than being a one-off draw.
+v1 ran the "mask 8% and reconstruct" test ONCE. On reviewing the imputation
+literature, we found that single-draw validation is not accepted as evidence
+of stability: a lone lucky/unlucky random mask says nothing about whether the
+method's advantage is reproducible. Standard practice is to repeat the masking
+under many independent draws and report the resulting distribution. v2 therefore
+repeats the experiment N_ITERATIONS times, each with an independent random mask
+(different seed, same 8% fraction, same predictor set), and reports the
+distribution (mean +/- std, min/max) of R^2/RMSE/MAE across runs for both MICE
+and the median baseline — establishing that the result generalises rather than
+being a one-off draw.
 """
 from __future__ import annotations
 

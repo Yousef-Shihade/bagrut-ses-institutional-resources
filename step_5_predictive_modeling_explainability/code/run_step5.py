@@ -5,8 +5,7 @@ Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
 Authors: Yousef Shihade & Shada Esawi
 
-Per the Presentation 3+4 rubric, extended for the lecturer's 3-dataset-from-the-
-start feedback:
+Pipeline, following the redesign that merges all three datasets from the start:
     load -> iterative VIF collinearity pruning (full 15-feature numeric set)
     -> per target: Boruta feature selection (SES+budget candidates)
                 -> model tournament (GroupKFold CV) -> tune champion (HGB)

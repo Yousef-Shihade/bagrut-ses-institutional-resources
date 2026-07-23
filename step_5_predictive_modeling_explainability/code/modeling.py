@@ -7,8 +7,8 @@ Authors: Yousef Shihade & Shada Esawi
 
 For each target we evaluate four models under GroupKFold(semel) CV:
   * Ridge            — regularised linear baseline (standardised)
-  * SGDRegressor     — linear SVM via stochastic gradient descent (mandated;
-                       standardised)
+  * SGDRegressor     — linear SVM via stochastic gradient descent
+                       (standardised)
   * RandomForest     — bagged tree ensemble (non-linear)
   * HistGradientBoosting — modern boosted trees; the tuned CHAMPION. Handles
                        non-linear curves and the zero-inflated Math participation

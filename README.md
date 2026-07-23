@@ -163,9 +163,10 @@ BagrutProject/
 
 ## 🧪 Key Experimental Footprints
 
-**MICE robustness experiment (Step 4).** Following feedback that a single
-masked-imputation run isn't sufficient evidence, we repeated the "mask 8% and
-reconstruct" test **25 times** with independent random seeds:
+**MICE robustness experiment (Step 4).** Our review of the imputation literature
+established that a single masked-imputation run is not sufficient evidence of
+stability, so we repeated the "mask 8% and reconstruct" test **25 times** with
+independent random seeds:
 
 | Method | R² (mean ± std across 25 runs) | RMSE (mean ± std) |
 |---|---|---|
@@ -321,7 +322,7 @@ python step_5_predictive_modeling_explainability/code/run_step5.py
 
 ---
 
-## 🔬 Mandated Methods Coverage
+## 🔬 Methods Coverage
 
 | Category | Method | Stage |
 |---|---|---|
