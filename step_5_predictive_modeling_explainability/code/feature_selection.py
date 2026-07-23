@@ -3,7 +3,7 @@ feature_selection.py — collinearity (iterative VIF) + Boruta selection (v2).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Two rubric items:
   * "features exploration and handling – collinearity": v1 checked one known

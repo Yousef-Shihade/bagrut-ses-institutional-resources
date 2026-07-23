@@ -1,7 +1,7 @@
 # Step 4 — Preprocessing, Outliers & MICE Robustness (v2)
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
-**Authors:** Yousef Shehade & Shada Esawi
+**Authors:** Yousef Shihade & Shada Esawi
 
 > **v2 change.** The lecturer flagged that a *single* masked-imputation run is
 > not sufficient evidence of stability. Task A now repeats the MICE experiment

@@ -3,7 +3,7 @@ run_step2.py — Step 2 orchestrator (v2: three-way merge).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Flow:
     load 3 Step-1 caches

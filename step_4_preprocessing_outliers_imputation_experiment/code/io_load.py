@@ -3,7 +3,7 @@ io_load.py — Step 4 input loading & shared feature prep.
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Loads Step 3's school-level table and adds two derived columns reused across
 Step 4 tasks:

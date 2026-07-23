@@ -3,7 +3,7 @@ run_step1.py — Step 1 orchestrator (v2: ingestion & standardisation, 3 dataset
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Flow:
     load + clean Bagrut / CBS / Budget  ->  cache 3 CSVs  ->  5 diagnostic plots

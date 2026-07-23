@@ -3,7 +3,7 @@ io_load.py — Step 5 input loading & feature-matrix construction (v2).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Loads Step 4's cleaned modeling table and builds, per target, the FULL candidate
 predictor matrix X (SES + school-level budget features, one-hot encoded

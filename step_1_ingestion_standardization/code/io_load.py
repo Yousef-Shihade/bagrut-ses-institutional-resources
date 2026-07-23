@@ -3,7 +3,7 @@ io_load.py — Resilient ingestion of the THREE raw datasets (v2 Step 1).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Responsibilities
 ----------------

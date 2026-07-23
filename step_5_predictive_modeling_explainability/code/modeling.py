@@ -1,8 +1,9 @@
 """
 modeling.py — the modeling tournament, tuning, and CV evaluation.
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
-Authors: Yousef Shehade & Shada Esawi
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
+Authors: Yousef Shihade & Shada Esawi
 
 For each target we evaluate four models under GroupKFold(semel) CV:
   * Ridge            — regularised linear baseline (standardised)

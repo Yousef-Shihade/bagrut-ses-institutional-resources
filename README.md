@@ -12,7 +12,7 @@
 ![Pipeline](https://img.shields.io/badge/pipeline-5%20stages-success.svg)
 ![Status](https://img.shields.io/badge/status-complete-brightgreen.svg)
 
-**Authors:** Yousef Shihade & Shada Essawi · *Data Science Lab — Final Project*
+**Authors:** Yousef Shihade & Shada Esawi · *Data Science Lab — Final Project*
 
 ---
 
@@ -193,7 +193,7 @@ set, which won every target.
 | 🎯 Target | R² | RMSE | MAE |
 |---|--:|--:|--:|
 | **english_5unit_participation** | **0.545** | 0.178 | 0.129 |
-| `math_avg_grade` | 0.431 | 5.274 | 4.060 |
+| `math_avg_grade` | 0.431 | 5.273 | 4.059 |
 | `english_avg_grade` | 0.428 | 4.584 | 3.502 |
 | `math_5unit_participation` | 0.421 | 0.079 | 0.056 |
 
@@ -219,6 +219,11 @@ GroupKFold folds, same tuning protocol — so the R² delta is attributable
 | `english_avg_grade` | 0.199 | **0.455** | **+0.256** |
 | `math_5unit_participation` | 0.058 | **0.439** | **+0.381** |
 | `english_5unit_participation` | 0.229 | **0.549** | **+0.321** |
+
+*These values differ slightly from the leaderboard above because the ablation
+restricts both arms to the row subset where **both** feature sets are complete —
+a fair before/after comparison requires identical rows. Quote the leaderboard for
+**model performance**, and ΔR² here for **how much the budget data adds**.*
 
 > 📈 **Mean ΔR² = +0.320** — every target's explanatory power **more than
 > doubled**. Five budget-derived ratios (tuition, perimeter, projects,
@@ -338,4 +343,4 @@ python step_5_predictive_modeling_explainability/code/run_step5.py
 
 ## 📄 License
 
-Released under the [MIT License](LICENSE) © 2026 Yousef Shihade & Shada Essawi.
+Released under the [MIT License](LICENSE) © 2026 Yousef Shihade & Shada Esawi.

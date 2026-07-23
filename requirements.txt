@@ -2,7 +2,7 @@
 # BagrutProject — Python dependencies
 # Predicting Bagrut Success from Municipal Socioeconomics and School-Level
 # Institutional Resources
-# Authors: Yousef Shihade & Shada Essawi
+# Authors: Yousef Shihade & Shada Esawi
 #
 # Pinned to the verified, stable execution stack used across Steps 1-5 (all
 # three datasets — Bagrut, CBS socioeconomic index, Ministry budget report —

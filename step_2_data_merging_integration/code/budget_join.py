@@ -3,7 +3,7 @@ budget_join.py — Join B: Bagrut <-> Budget on the school code (semel). NEW in 
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Unlike the Bagrut<->CBS join (Join A, city-name fuzzy matching in matching.py),
 ``semel`` is a SCHOOL code in BOTH the Bagrut and Budget datasets, so this join

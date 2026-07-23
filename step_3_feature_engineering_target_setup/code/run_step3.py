@@ -3,7 +3,7 @@ run_step3.py — Step 3 orchestrator (v2: feature engineering & target setup).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Flow:
     load Step-2 merged table (118 subjects, all 3 sources)

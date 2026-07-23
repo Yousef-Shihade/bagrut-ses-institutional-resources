@@ -2,7 +2,7 @@
 # BagrutProject v2 — Step 3 Configuration (Feature Engineering & Target Setup)
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
-# Authors: Yousef Shehade & Shada Esawi
+# Authors: Yousef Shihade & Shada Esawi
 #
 # Consumes Step 2's three-way-merged record-level table and re-grains it to
 # SCHOOL level (semel x year). Targets are Math + English only (as in v1) — the
@@ -13,7 +13,7 @@
 project:
   title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
-    - "Yousef Shehade"
+    - "Yousef Shihade"
     - "Shada Esawi"
 
 seed: 42

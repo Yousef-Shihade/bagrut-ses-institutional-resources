@@ -1,7 +1,7 @@
 # Step 1 — Ingestion & Standardization (v2: three datasets)
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
-**Authors:** Yousef Shehade & Shada Esawi
+**Authors:** Yousef Shihade & Shada Esawi
 
 > **v2 change.** The Ministry-of-Education **budget dataset is ingested here, as a
 > first-class third source** — not bolted on at the end as in v1. This is what

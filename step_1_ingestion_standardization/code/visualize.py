@@ -3,7 +3,7 @@ visualize.py — Step 1 diagnostic plots (v2, three datasets).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Plots produced
 --------------

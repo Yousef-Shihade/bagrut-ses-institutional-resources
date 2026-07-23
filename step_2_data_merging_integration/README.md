@@ -1,7 +1,7 @@
 # Step 2 — Three-Way Merge (v2)
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
-**Authors:** Yousef Shehade & Shada Esawi
+**Authors:** Yousef Shihade & Shada Esawi
 
 > **v2 change.** Two independent joins now feed **one** consolidated record-level
 > table in this step — Bagrut↔CBS (as in v1) **and** Bagrut↔Budget (new). Both

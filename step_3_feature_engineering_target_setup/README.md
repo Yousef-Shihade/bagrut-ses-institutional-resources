@@ -1,7 +1,7 @@
 # Step 3 — Feature Engineering & Target Setup (v2)
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
-**Authors:** Yousef Shehade & Shada Esawi
+**Authors:** Yousef Shihade & Shada Esawi
 
 > **v2 change.** Targets are still **Math + English only** (as in v1 — see the
 > Step 2 discussion for why we kept scope disciplined rather than expanding

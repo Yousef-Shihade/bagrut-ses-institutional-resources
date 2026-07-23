@@ -3,7 +3,7 @@ imputation_experiment.py — Task A: MICE robustness (v2: multi-iteration).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 v1 ran the "mask 8% and reconstruct" test ONCE. The lecturer flagged this as
 insufficient evidence: a single lucky/unlucky random mask does not prove the

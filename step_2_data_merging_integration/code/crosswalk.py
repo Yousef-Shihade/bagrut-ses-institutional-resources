@@ -1,8 +1,9 @@
 """
 crosswalk.py — Stage 2 structural crosswalk for the Bagrut <-> CBS merge.
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
-Authors: Yousef Shehade & Shada Esawi
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
+Authors: Yousef Shihade & Shada Esawi
 
 Stage 2 of the multi-stage alignment handles *systematic* differences between the
 two sources that an exact key match cannot. It has two parts:

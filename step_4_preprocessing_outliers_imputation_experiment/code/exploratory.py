@@ -1,8 +1,9 @@
 """
 exploratory.py — Task C: baseline answers to the two core research questions.
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
-Authors: Yousef Shehade & Shada Esawi
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
+Authors: Yousef Shihade & Shada Esawi
 
 Q1 (Subject resilience): which subject's cluster-2 -> cluster-9 gap is smallest?
 Q2 (Low-SES overachievers): which low-cluster (1-4) schools match elite (8-10)

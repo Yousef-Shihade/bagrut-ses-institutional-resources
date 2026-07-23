@@ -1,8 +1,9 @@
 """
 outliers.py — Task B: Isolation Forest + Local Outlier Factor.
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
-Authors: Yousef Shehade & Shada Esawi
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
+Authors: Yousef Shihade & Shada Esawi
 
 Flags anomalous school-year records (uncharacteristic grade/SES/volume profiles)
 with two complementary detectors and contrasts them:

@@ -3,7 +3,7 @@
 # Ingestion & Standardization of THREE datasets
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
-# Authors: Yousef Shehade & Shada Esawi
+# Authors: Yousef Shihade & Shada Esawi
 #
 # Self-contained STEP folder: all paths are relative to this folder (the one
 # containing this config.yaml). Shared raw data lives at the project root, hence
@@ -16,7 +16,7 @@
 project:
   title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
-    - "Yousef Shehade"
+    - "Yousef Shihade"
     - "Shada Esawi"
 
 seed: 42

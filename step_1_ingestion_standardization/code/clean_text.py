@@ -3,7 +3,7 @@ clean_text.py — Hebrew string standardisation for the three datasets (v2 Step 
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Why this module exists
 ----------------------

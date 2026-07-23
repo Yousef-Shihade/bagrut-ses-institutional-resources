@@ -1,8 +1,9 @@
 """
 matching.py — Multi-stage Bagrut <-> CBS alignment & merge.
 
-Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
-Authors: Yousef Shehade & Shada Esawi
+Project: Predicting Bagrut Success from Municipal Socioeconomics and
+         School-Level Institutional Resources
+Authors: Yousef Shihade & Shada Esawi
 
 Deterministic four-pass alignment (per UNIQUE Bagrut city key), each city is
 resolved to exactly one CBS ``locality_code`` so the final join is strictly

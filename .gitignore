@@ -1,7 +1,8 @@
 # =============================================================================
 # BagrutProject — .gitignore
-# Project: Predicting Israeli High School Bagrut Success Using Socioeconomic Data
-# Authors: Yousef Shehade & Shada Esawi
+# Project: Predicting Bagrut Success from Municipal Socioeconomics and
+#          School-Level Institutional Resources
+# Authors: Yousef Shihade & Shada Esawi
 #
 # Goal: a lean, reproducible repository. Raw source data and course material are
 # excluded (kept on local disk only); the modular step pipelines regenerate every

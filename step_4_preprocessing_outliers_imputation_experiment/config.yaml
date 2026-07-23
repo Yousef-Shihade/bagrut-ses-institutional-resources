@@ -3,7 +3,7 @@
 # Preprocessing, Outlier Detection & the Multi-Iteration MICE Robustness Experiment
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
-# Authors: Yousef Shehade & Shada Esawi
+# Authors: Yousef Shihade & Shada Esawi
 #
 # v2 CHANGE: the MICE experiment (Task A) now repeats the masking experiment
 # N_ITERATIONS times with different random seeds, reporting mean +/- std across
@@ -16,7 +16,7 @@
 project:
   title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
-    - "Yousef Shehade"
+    - "Yousef Shihade"
     - "Shada Esawi"
 
 seed: 42

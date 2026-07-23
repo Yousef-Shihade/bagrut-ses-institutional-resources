@@ -3,7 +3,7 @@ visualize.py — Step 2 diagnostic plots (three-way merge, v2).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Plots:
 1. match_yield_waterfall.png  — Join A (CBS) stage-by-stage yield (exact ->

@@ -3,7 +3,7 @@ ablation.py — SES-only baseline vs Boruta-selected full feature set (NEW in v2
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 v1's Step 6 answered "does adding the budget dataset help?" as a bolted-on final
 step. Per lecturer feedback, the three datasets are now merged from the start

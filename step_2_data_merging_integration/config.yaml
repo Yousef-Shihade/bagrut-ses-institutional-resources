@@ -2,7 +2,7 @@
 # BagrutProject v2 — Step 2 Configuration (Three-Way Merge)
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
-# Authors: Yousef Shehade & Shada Esawi
+# Authors: Yousef Shihade & Shada Esawi
 #
 # Self-contained STEP folder; paths are relative to this folder. Step 2 performs
 # TWO independent joins onto the Bagrut record-level table:
@@ -14,7 +14,7 @@
 project:
   title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
-    - "Yousef Shehade"
+    - "Yousef Shihade"
     - "Shada Esawi"
 
 seed: 42

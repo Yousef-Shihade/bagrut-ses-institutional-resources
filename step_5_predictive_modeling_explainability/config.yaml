@@ -3,7 +3,7 @@
 # Predictive Modeling, Feature Selection & Explainability
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
-# Authors: Yousef Shehade & Shada Esawi
+# Authors: Yousef Shihade & Shada Esawi
 #
 # v2 CHANGE: Boruta now selects among the FULL 23-candidate feature space (SES +
 # budget), not just 4 municipal features. VIF collinearity handling is now
@@ -17,7 +17,7 @@
 project:
   title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
   authors:
-    - "Yousef Shehade"
+    - "Yousef Shihade"
     - "Shada Esawi"
 
 seed: 42
@@ -27,6 +27,7 @@ paths:
   out_models:      "models"
   out_graphs:      "graphs"
   leaderboard_out: "models/leaderboard_cv.csv"
+  tuned_out:       "models/leaderboard_tuned.csv"
   vif_out:         "models/vif_report.csv"
   boruta_out:      "models/boruta_report.csv"
   ablation_out:    "models/ablation_before_after.csv"

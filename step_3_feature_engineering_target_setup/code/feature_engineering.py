@@ -3,7 +3,7 @@ feature_engineering.py — re-grain to school level + engineer targets & feature
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Transforms the Step 2 three-way-merged record table into a SCHOOL-level
 (semel x year) table with:

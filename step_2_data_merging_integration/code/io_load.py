@@ -3,7 +3,7 @@ io_load.py — Step 2 input loading (Step-1 clean caches, all three datasets).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 """
 from __future__ import annotations
 

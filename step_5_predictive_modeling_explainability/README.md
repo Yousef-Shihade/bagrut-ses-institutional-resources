@@ -1,7 +1,7 @@
 # Step 5 — Predictive Modeling, Ablation & Explainability (v2)
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
-**Authors:** Yousef Shehade & Shada Esawi
+**Authors:** Yousef Shihade & Shada Esawi
 
 > **v2 change.** Boruta now selects among the **full 49-column SES+budget
 > candidate space** (up from v1's 4 municipal features), collinearity handling
@@ -28,6 +28,8 @@ step_5_predictive_modeling_explainability/
 │   ├── explain.py            # SHAP, leaderboard, ablation & VIF plots
 │   └── run_step5.py          # orchestrator + comprehensive console report
 ├── models/                   # 4 tuned HGB models + VIF/Boruta/ablation/leaderboard CSVs
+│                             #   (leaderboard_cv = untuned tournament;
+│                             #    leaderboard_tuned = headline champion numbers)
 └── graphs/                   # VIF pruning, 4 SHAP beeswarms, leaderboard, ablation chart
 ```
 
@@ -85,12 +87,25 @@ any single anomalous year. This changed nothing else: every headline result
 below is essentially unchanged, confirming they don't depend on this modeling
 choice either way.
 
-| Target | Boruta-selected features |
-|---|---|
-| `math_avg_grade` | cluster, log_population, tuition/perimeter/projects/purchases/transport per student, nurture_quintile, avg_class_size, log_school_size, **supervision_Haredi** |
-| `english_avg_grade` | + private_hours_per_student, special_ed_share, **district_North**, **sector_Bedouin** |
-| `math_5unit_participation` | cluster, log_population, tuition/perimeter/projects/purchases/transport per student, nurture_quintile, avg_class_size, log_school_size, **district_North**, **sector_Jewish** |
-| `english_5unit_participation` | + private_hours_per_student, **sector_Jewish**, **supervision_Haredi** |
+**A 10-feature core is confirmed for all four targets:** `cluster`,
+`log_population`, `nurture_quintile`, `avg_class_size`, `log_school_size`, and
+the five per-student budget ratios (`tuition`, `perimeter`, `projects`,
+`purchases`, `transport`). On top of that shared core, each target confirms its
+own additions:
+
+| Target | Additional features beyond the 10-feature core | Total |
+|---|---|--:|
+| `math_avg_grade` | **supervision_Haredi** | **11** |
+| `math_5unit_participation` | **district_North**, **sector_Jewish** | **12** |
+| `english_5unit_participation` | private_hours_per_student, **sector_Jewish**, **supervision_Haredi** | **13** |
+| `english_avg_grade` | private_hours_per_student, special_ed_share, **district_North**, **sector_Bedouin** | **14** |
+
+Note that the extras are **genuinely target-specific, not cumulative** — e.g.
+`supervision_Haredi` is confirmed for `math_avg_grade` but *not* for
+`english_avg_grade`, and `district_North` is confirmed for
+`math_5unit_participation` but *not* for `english_5unit_participation`. Both
+English targets pick up `private_hours_per_student` (private tutoring hours),
+which neither Math target does.
 
 **Five budget ratios are confirmed for every single target**
 (`tuition_per_student`, `perimeter_per_student`, `projects_per_student`,
@@ -115,9 +130,15 @@ RandomizedSearchCV — run on each target's Boruta-selected features.
 | Target | R² | RMSE | MAE |
 |---|--:|--:|--:|
 | **english_5unit_participation** | **0.545** | 0.178 | 0.129 |
-| `math_avg_grade` | 0.431 | 5.274 | 4.060 |
+| `math_avg_grade` | 0.431 | 5.273 | 4.059 |
 | `english_avg_grade` | 0.428 | 4.584 | 3.502 |
 | `math_5unit_participation` | 0.421 | 0.079 | 0.056 |
+
+These headline numbers are saved to **`models/leaderboard_tuned.csv`** (and
+inside each model's `.joblib` as `cv_metrics`). Note the distinction:
+`models/leaderboard_cv.csv` holds the **untuned 4-model tournament**, which is
+what the chart above plots; `leaderboard_tuned.csv` holds the **tuned champion**
+quoted here and in the root README.
 
 All four untuned models now score **positive R² across the board** (v1's
 RandomForest went negative on the 4-feature SES-only space) — the richer
@@ -143,6 +164,16 @@ attributable **only** to the extra information.
 | `english_avg_grade` | 0.199 | **0.455** | **+0.256** |
 | `math_5unit_participation` | 0.058 | **0.439** | **+0.381** |
 | `english_5unit_participation` | 0.229 | **0.549** | **+0.321** |
+
+> **Why these R² values differ slightly from §4's leaderboard** (e.g.
+> `math_avg_grade`: 0.458 here vs 0.431 there). The ablation deliberately
+> restricts both arms to the **row intersection where *both* feature sets are
+> complete** (2,929–3,187 rows depending on target, vs the full sample §4 uses),
+> because a fair before/after comparison requires identical rows. It also
+> re-expands any Boruta-selected categorical back to its **full** dummy set, so
+> the "after" arm carries a few more encoded columns than §4's model. The §4
+> leaderboard is therefore the number to quote for **model performance**; the
+> ΔR² here is the number to quote for **how much the budget data adds**.
 
 **Mean ΔR² across the four targets: +0.320.** Every target's explanatory power
 **more than doubled** (and `math_5unit_participation` grew nearly **8×**). This
@@ -191,6 +222,8 @@ this pipeline captures from the start rather than as an afterthought.
       identical protocol; mean ΔR² = +0.320.
 - [x] SHAP beeswarms for all 4 targets; Hebrew categorical labels translated to
       English for readability (matplotlib RTL rendering issue caught and fixed).
-- [x] 4 tuned models + VIF/Boruta/ablation/leaderboard CSVs saved.
+- [x] 4 tuned models + VIF/Boruta/ablation/leaderboard CSVs saved; tuned champion
+      metrics persisted to `leaderboard_tuned.csv` so every headline number in the
+      READMEs is auditable from a plain CSV.
 
 **Status: Step 5 complete ✔**

@@ -3,7 +3,7 @@ run_step5.py — Step 5 orchestrator (v2: modeling, ablation, Boruta, SHAP).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 Per the Presentation 3+4 rubric, extended for the lecturer's 3-dataset-from-the-
 start feedback:
@@ -166,6 +166,18 @@ def main() -> None:
     pd.DataFrame(boruta_rows).to_csv(resolve(cfg["paths"]["boruta_out"]), index=False,
                                      encoding=cfg["io"]["encoding"])
 
+    # The headline numbers quoted in the READMEs are the *tuned* champion's, not
+    # the untuned tournament's — persist them so they are auditable from a CSV
+    # rather than only from inside the .joblib files.
+    tuned_rows = [{"target": t,
+                   "model": "HistGradientBoosting (tuned)",
+                   "n_features": len(s["features"]),
+                   **{k: s["tuned_metrics"][k] for k in ("R2", "RMSE", "MAE")}}
+                  for t, s in tuned_store.items()]
+    pd.DataFrame(tuned_rows).sort_values("R2", ascending=False).to_csv(
+        resolve(cfg["paths"]["tuned_out"]), index=False,
+        encoding=cfg["io"]["encoding"])
+
     ablation_df = pd.DataFrame(ablation_rows)
     ablation_df.to_csv(resolve(cfg["paths"]["ablation_out"]), index=False,
                        encoding=cfg["io"]["encoding"])
@@ -193,7 +205,8 @@ def main() -> None:
     print(f"    VIF report        : {Path(cfg['paths']['vif_out']).name}")
     print(f"    Boruta report     : {Path(cfg['paths']['boruta_out']).name}")
     print(f"    Ablation report   : {Path(cfg['paths']['ablation_out']).name}")
-    print(f"    leaderboard csv   : {Path(cfg['paths']['leaderboard_out']).name}")
+    print(f"    leaderboard csv   : {Path(cfg['paths']['leaderboard_out']).name} (untuned tournament)")
+    print(f"    tuned champion csv: {Path(cfg['paths']['tuned_out']).name} (headline numbers)")
     print("    graphs:")
     for p in [vif_plot] + plots:
         print(f"      - {Path(p).name:38s} ({Path(p).stat().st_size/1024:6.1f} KB)")

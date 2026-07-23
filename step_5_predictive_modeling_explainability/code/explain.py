@@ -3,7 +3,7 @@ explain.py — SHAP explainability + leaderboard/ablation visualisation (v2).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
-Authors: Yousef Shehade & Shada Esawi
+Authors: Yousef Shihade & Shada Esawi
 
 shap_beeswarm / shap_importance / plot_leaderboard are unchanged from v1.
 plot_before_after is NEW — visualises the Step-5 ablation study (SES-only vs the
