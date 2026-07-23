@@ -1,5 +1,5 @@
 """
-io_load.py — Step 5 input loading & feature-matrix construction (v2).
+io_load.py — Step 5 input loading & feature-matrix construction.
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -85,7 +85,7 @@ def build_xy(df: pd.DataFrame, target: str, numeric: list[str], categorical: lis
             group_col: str):
     """Return (X, y, groups) for one target, dropping rows with a missing target
     or a missing NUMERIC candidate (categoricals encode NaN as an all-zero row,
-    consistent with v1's convention)."""
+    consistent throughout the pipeline)."""
     keep = df[target].notna()
     if numeric:
         keep = keep & df[numeric].notna().all(axis=1)

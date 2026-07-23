@@ -1,5 +1,5 @@
 """
-budget_join.py — Join B: Bagrut <-> Budget on the school code (semel). NEW in v2.
+budget_join.py — Join B: Bagrut <-> Budget on the school code (semel).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources

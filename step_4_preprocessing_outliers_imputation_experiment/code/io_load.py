@@ -9,7 +9,7 @@ Loads Step 3's school-level table and adds two derived columns reused across
 Step 4 tasks:
   * combined_avg_grade  = mean(math_avg_grade, english_avg_grade)  (row-wise)
   * log_total_takers    = log1p(math_takers_total + english_takers_total)
-``log_population`` is already computed in Step 3 (v2 moved it there since it is
+``log_population`` is already computed in Step 3 (a deterministic transform is
 a deterministic feature-engineering transform, not a preprocessing step).
 """
 from __future__ import annotations

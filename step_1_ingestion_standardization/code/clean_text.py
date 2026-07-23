@@ -1,5 +1,5 @@
 """
-clean_text.py — Hebrew string standardisation for the three datasets (v2 Step 1).
+clean_text.py — Hebrew string standardisation for the three datasets (Step 1).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources

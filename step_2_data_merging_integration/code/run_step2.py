@@ -1,5 +1,5 @@
 """
-run_step2.py — Step 2 orchestrator (v2: three-way merge).
+run_step2.py — Step 2 orchestrator (three-way merge).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -46,7 +46,7 @@ def main() -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
 
     print(_hr())
-    print("STEP 2 — THREE-WAY MERGE (v2)")
+    print("STEP 2 — THREE-WAY MERGE")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
@@ -74,7 +74,7 @@ def main() -> None:
 
     # ---------------- Join B: Bagrut <-> Budget (exact semel) --------------- #
     merged, diag_b = bj.merge_budget(merged, budget, cfg)
-    print("\n[JOIN B] Bagrut <-> Budget  (school code `semel`, exact key)  — NEW in v2")
+    print("\n[JOIN B] Bagrut <-> Budget  (school code `semel`, exact key)")
     print(f"    schools matched: {diag_b['schools_matched']:,}/{diag_b['schools_total']:,} "
           f"({diag_b['schools_matched_pct']}%)")
     print(f"    rows matched:    {diag_b['rows_with_budget']:,}/{diag_b['rows_total']:,} "

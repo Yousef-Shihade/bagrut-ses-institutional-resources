@@ -1,13 +1,13 @@
 """
-explain.py — SHAP explainability + leaderboard/ablation visualisation (v2).
+explain.py — SHAP explainability + leaderboard/ablation visualisation.
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
 Authors: Yousef Shihade & Shada Esawi
 
-shap_beeswarm / shap_importance / plot_leaderboard are unchanged from v1.
-plot_before_after is NEW — visualises the Step-5 ablation study (SES-only vs the
-Boruta-selected full feature set) that replaces v1's bolted-on Step 6.
+Produces the four SHAP beeswarms (one per target), the cross-validated model
+leaderboard, the VIF pruning trace, and ``plot_before_after`` — the ablation
+chart contrasting the SES-only arm with the Boruta-selected full feature set.
 """
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def plot_before_after(ablation: pd.DataFrame, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     long = ablation.melt(id_vars="target", value_vars=["R2_before", "R2_after"],
                          var_name="phase", value_name="R2")
-    long["phase"] = long["phase"].map({"R2_before": "SES only (v1 baseline)",
+    long["phase"] = long["phase"].map({"R2_before": "SES only",
                                        "R2_after": "SES + Budget (Boruta-selected)"})
     fig, ax = plt.subplots(figsize=(13, 7))
     sns.barplot(data=long, x="target", y="R2", hue="phase", palette=[NAVY, TEAL], ax=ax)

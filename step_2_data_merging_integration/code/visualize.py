@@ -1,5 +1,5 @@
 """
-visualize.py — Step 2 diagnostic plots (three-way merge, v2).
+visualize.py — Step 2 diagnostic plots (three-way merge).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -9,7 +9,7 @@ Plots:
 1. match_yield_waterfall.png  — Join A (CBS) stage-by-stage yield (exact ->
                                 structural -> crosswalk -> fuzzy -> unmatched).
 2. dual_join_success.png      — Join A vs Join B match rate, side by side (the
-                                new v2 story: one join is fuzzy/hard, one is
+                                the two joins differ in kind: one is fuzzy/hard, one is
                                 clean/easy, and BOTH feed the same final table).
 3. sector_supervision_by_cluster.png — NEW: does the budget dataset's school-level
                                 sector/supervision correlate with municipal SES

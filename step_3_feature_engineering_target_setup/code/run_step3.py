@@ -1,5 +1,5 @@
 """
-run_step3.py — Step 3 orchestrator (v2: feature engineering & target setup).
+run_step3.py — Step 3 orchestrator (feature engineering & target setup).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -43,7 +43,7 @@ def main() -> None:
     graphs = resolve(cfg["paths"]["out_graphs"])
 
     print(_hr())
-    print("STEP 3 — FEATURE ENGINEERING & TARGET SETUP (v2)")
+    print("STEP 3 — FEATURE ENGINEERING & TARGET SETUP")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
@@ -84,7 +84,7 @@ def main() -> None:
     total_conceptual = (len(cbs_numeric) + 1 + len(cfg["budget_categorical"])
                         + len(cfg["budget_direct_numeric"]) + len(ratio_names) + 2 + 1)
     print(f"    TOTAL CONCEPTUAL FEATURES: {total_conceptual}  "
-          f"(v1 baseline was 4 — Boruta in Step 5 will select among these)")
+          f"(Boruta in Step 5 will select among these)")
 
     # ---------------- ratio engineering coverage ------------------------------ #
     print("\n[BUDGET RATIOS] coverage on the school-year table")

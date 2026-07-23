@@ -1,17 +1,16 @@
 # =============================================================================
-# BagrutProject v2 — Step 5 Configuration
+# BagrutProject — Step 5 Configuration
 # Predictive Modeling, Feature Selection & Explainability
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
 # Authors: Yousef Shihade & Shada Esawi
 #
-# v2 CHANGE: Boruta now selects among the FULL 23-candidate feature space (SES +
-# budget), not just 4 municipal features. VIF collinearity handling is now
-# ITERATIVE (repeatedly drop the highest-VIF feature until all are below
-# threshold) since the larger numeric set may hide more than one redundant pair.
-# An ABLATION study (SES-only vs the Boruta-selected full set, same rows) is
-# folded in as a Step-5 subsection — this preserves the old "Step 6" before/after
-# budget story as rigorous methodology instead of a bolted-on extension.
+# Boruta selects among the full 23-candidate feature space (municipal SES +
+# school-level budget). VIF collinearity handling is ITERATIVE (repeatedly drop
+# the highest-VIF feature until all are below threshold), since a numeric set
+# this size can hide more than one redundant pair. An ABLATION study (SES-only
+# vs the Boruta-selected full set, on identical rows) quantifies exactly how
+# much the institutional data contributes over municipal features alone.
 # =============================================================================
 
 project:
@@ -41,7 +40,7 @@ targets:
   - "math_5unit_participation"
   - "english_5unit_participation"
 
-# --- Predictors: the FULL v2 candidate space (SES + school-level budget) ----
+# --- Predictors: the full candidate space (SES + school-level budget) -------
 features:
   group_col: "semel"
   numeric:
@@ -73,22 +72,22 @@ features:
     - "year"
   exclude_outlier_flag: "outlier_consensus"
 
-# --- Collinearity: iterative VIF pruning (extends v1's single-pair check) ---
+# --- Collinearity: iterative VIF pruning ------------------------------------
 collinearity:
   # index_value is included here (not in features.numeric above) purely to
-  # DEMONSTRATE the cluster/index_value redundancy (r=0.97) established in v1 —
+  # QUANTIFY the cluster/index_value redundancy (r=0.97) rather than assume it —
   # it is never a modeling candidate. Pruning runs on features.numeric + this.
   vif_features_extra: ["index_value"]
   vif_threshold: 5.0
 
-# --- Feature selection (Boruta) — same method/params as v1, larger input -----
+# --- Feature selection (Boruta) ---------------------------------------------
 feature_selection:
   method: "boruta"
   boruta_max_iter: 100
   boruta_estimators: 200
   boruta_perc: 90
 
-# --- Modeling tournament (unchanged protocol from v1) ------------------------
+# --- Modeling tournament -----------------------------------------------------
 modeling:
   cv_splits: 5
   champion: "hist_gradient_boosting"
@@ -96,11 +95,11 @@ modeling:
   shap_sample: 1500
 
 # --- Ablation study: SES-only baseline vs Boruta-selected full set ----------
-# Same feature definitions v1 used as its ENTIRE model — now the "before" arm
-# of a same-rows comparison against whatever Boruta selects from the full
-# SES+budget space (the "after" arm). This answers "did the budget dataset add
-# information beyond the original 2-dataset question?" as a rigorous ablation,
-# not a bolted-on Step 6.
+# The municipal-only feature set below is the "before" arm; it is compared on
+# identical rows against whatever Boruta selects from the full SES+budget space
+# (the "after" arm). This is what answers "does the school-level budget data add
+# information beyond municipal socioeconomic status?" under controlled
+# conditions rather than by comparing two separately-reported models.
 ablation:
   baseline_numeric: ["cluster", "log_population"]
   baseline_categorical: ["locality_form", "year"]

@@ -1,16 +1,15 @@
-# Step 4 — Preprocessing, Outliers & MICE Robustness (v2)
+# Step 4 — Preprocessing, Outliers & MICE Robustness
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shihade & Shada Esawi
 
-> **v2 change.** After reviewing the imputation literature and published
-> evaluations of MICE, we concluded that a *single* masked-imputation run is not
-> methodologically sufficient evidence of stability — one draw cannot separate a
-> genuine advantage from a favourable random mask. The experiment now runs
-> **25 times** with independent random seeds/masks and reports the full
-> distribution (mean ± std, min/max) rather than one number. Outlier detection
-> and the exploratory analysis reuse v1's proven methodology, now operating on
-> the richer v2 feature space.
+> This step prepares the modelling table in three parts: a **quantitative
+> justification for the imputation strategy**, **outlier detection**, and the
+> **exploratory analysis** behind the secondary research questions. Because a
+> single masked-imputation run cannot separate a genuine advantage from a
+> favourable random mask — a point the imputation literature is explicit about —
+> the imputation experiment runs **25 times** with independent seeds and reports
+> the full distribution rather than one number.
 
 ---
 
@@ -23,8 +22,8 @@ step_4_preprocessing_outliers_imputation_experiment/
 ├── code/
 │   ├── io_load.py                 # load Step-3 table + combined_avg_grade, log_total_takers
 │   ├── imputation_experiment.py   # NEW: 25-iteration MICE robustness
-│   ├── outliers.py                # Isolation Forest + LOF (v1, unchanged)
-│   ├── exploratory.py             # Q1 resilience + Q2 overachievers (v1, unchanged)
+│   ├── outliers.py                # Isolation Forest + LOF
+│   ├── exploratory.py             # Q1 resilience + Q2 overachievers
 │   └── run_step4.py               # orchestrator + verification summary
 ├── data/
 │   ├── cleaned_modeling_ready.csv     # 3,731 × 54 (targets, features, outlier flags)
@@ -36,7 +35,7 @@ Run: `python code/run_step4.py`.
 
 ---
 
-## 2. MICE robustness (v2: 25 independent trials)
+## 2. MICE robustness — 25 independent trials
 
 **Why 25 runs, not 1.** One masked draw could be lucky or unlucky. Repeating with
 25 different random seeds (same 8% mask fraction, same predictor set, same
@@ -45,9 +44,9 @@ property of the method or a fluke of one draw.
 
 **Setup:** mask `index_value` (100% complete CBS feature) on **296 rows** (8% of
 3,697) per run; reconstruct with MICE (`IterativeImputer` + `BayesianRidge`) and a
-median baseline; score both against the true hidden values. Predictor set
-**expanded to 14 columns** (v1 had 9) — now includes the budget-derived features,
-so the demonstration reflects the actual v2 dataset.
+median baseline; score both against the true hidden values. The predictor set is
+the **full 14 columns** available at this stage, budget-derived features
+included, so the test reflects the dataset the models will actually see.
 
 ### Results across 25 runs
 
@@ -67,20 +66,20 @@ random mask.
 
 ---
 
-## 3. Outlier detection (unchanged method, richer feature space)
+## 3. Outlier detection
 
-Same two complementary detectors as v1 — **Isolation Forest** (global anomalies)
-and **Local Outlier Factor** (local-density anomalies) — now run on a **9-feature
-space** (v1 used 7), adding `total_budget_per_student` and `avg_class_size` so
-institutional-resourcing outliers can be caught too.
+Two complementary detectors — **Isolation Forest** (global anomalies) and
+**Local Outlier Factor** (local-density anomalies) — run over a **9-feature
+space** that includes `total_budget_per_student` and `avg_class_size`, so
+institutional-resourcing anomalies are caught alongside outcome ones.
 
 | | Isolation Forest | LOF | Consensus (both) |
 |---|--:|--:|--:|
 | Flagged | 167 | 167 | **49** |
 
-Jaccard overlap = **0.172** (v1: 0.116) — still low, confirming the two detectors
-capture different anomaly notions, but the richer feature space raised agreement
-somewhat. As in v1, only the **49 consensus** records are flagged
+Jaccard overlap = **0.172** — low, confirming the two detectors genuinely
+capture different notions of "anomalous" rather than duplicating each other.
+Only the **49 consensus** records are flagged
 (`outlier_consensus`) — none are deleted from the data; they are simply
 **excluded from model training** in Step 5 via a config switch, so they remain
 fully auditable.
@@ -89,12 +88,13 @@ fully auditable.
 
 ---
 
-## 4. Exploratory questions (unchanged from v1)
+## 4. Exploratory questions
 
-Both questions are **SES-only by design** (they test the original research
-question's resilience/overachiever findings) and depend only on `cluster` and the
-4 targets — unaffected by the new budget features, so results are **identical to
-v1**, confirming the aggregation pipeline carried through correctly.
+Both questions are **SES-only by design** — they ask how outcomes vary across the
+municipal socioeconomic gradient, so they depend only on `cluster` and the 4
+targets, deliberately holding the institutional features out. This keeps them a
+clean read on socioeconomic disparity itself, which Step 5 then contrasts against
+the full institutional picture.
 
 **Q1 — Subject resilience** (cluster 2 → cluster 9 gap): **Math is more
 resilient** — grade gap 6.18 pts (d=0.91) vs English 6.45 pts (d=1.16);
@@ -112,7 +112,8 @@ participation is significantly higher (Math p=1.4e-05, English p=1.4e-11).
 - [x] MICE predictor set expanded to 14 columns (incl. budget features).
 - [x] Per-run detail saved (`mice_robustness_runs.csv`) for full auditability.
 - [x] Isolation Forest + LOF run on the expanded 9-feature space; 49 consensus outliers flagged (not deleted).
-- [x] Exploratory Q1/Q2 reproduce v1 exactly — sanity-checks the pipeline port.
+- [x] Exploratory Q1 (subject resilience) and Q2 (low-SES overachievers) computed
+      with significance testing.
 - [x] 4/4 plots saved.
 - [x] `cleaned_modeling_ready.csv` (3,731 × 54) written.
 

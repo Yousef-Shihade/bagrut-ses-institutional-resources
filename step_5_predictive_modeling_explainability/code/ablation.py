@@ -1,20 +1,20 @@
 """
-ablation.py — SES-only baseline vs Boruta-selected full feature set (NEW in v2).
+ablation.py — SES-only baseline vs Boruta-selected full feature set.
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
 Authors: Yousef Shihade & Shada Esawi
 
-v1's Step 6 answered "does adding the budget dataset help?" as a bolted-on final
-step. Having established that the budget data carries substantial independent
-signal, we rebuilt the pipeline to merge all three datasets from the start
-(Steps 1-2), so that framing no longer fits. The comparison itself, however, is
-legitimate and valuable science — an ABLATION study — so it is kept here as a
-Step-5 subsection: for each target we tune the champion HistGradientBoosting
-TWICE on IDENTICAL rows — once on the original v1 feature set (SES only: cluster,
-log_population, year, locality_form) and once on whatever Boruta selected from
-the full SES+budget candidate space — so the R^2 delta is attributable ONLY to
-the extra information, not to a different row set or protocol.
+"Does the school-level budget data add information beyond municipal socioeconomic
+status?" is the project's central question, and it deserves a directly controlled
+answer rather than an inference drawn from two separately-reported model runs.
+
+This module answers it as an ABLATION study: for each target we tune the champion
+HistGradientBoosting TWICE on IDENTICAL rows — once on municipal features only
+(SES only: cluster, log_population, year, locality_form) and once on whatever
+Boruta selected from the full SES+budget candidate space. Holding the rows, the
+CV folds and the tuning protocol fixed means the R^2 delta is attributable ONLY
+to the extra information, not to a different row set or a different protocol.
 """
 from __future__ import annotations
 

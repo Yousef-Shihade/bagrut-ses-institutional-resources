@@ -1,5 +1,5 @@
 # =============================================================================
-# BagrutProject v2 — Step 1 Configuration
+# BagrutProject — Step 1 Configuration
 # Ingestion & Standardization of THREE datasets
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
@@ -9,8 +9,8 @@
 # containing this config.yaml). Shared raw data lives at the project root, hence
 # the "../datasets/..." prefix.
 #
-# v2 CHANGE: the Ministry-of-Education budget workbook is ingested HERE, as a
-# first-class third dataset, instead of being bolted on at the end (v1 Step 6).
+# The Ministry-of-Education budget workbook is ingested HERE, as a
+# first-class third dataset, so every downstream stage sees all three sources.
 # =============================================================================
 
 project:
@@ -60,7 +60,7 @@ ses:
   name_column: "locality_name"
 
 # -----------------------------------------------------------------------------
-# Dataset 3 — Ministry of Education school budget report (NEW in v2)
+# Dataset 3 — Ministry of Education school budget report
 # -----------------------------------------------------------------------------
 # The workbook ships a malformed styles.xml (non-aRGB theme colours) that makes a
 # vanilla openpyxl.load_workbook raise "Colors must be aRGB hex values". io_load

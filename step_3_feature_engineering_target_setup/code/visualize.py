@@ -1,5 +1,5 @@
 """
-visualize.py — Step 3 diagnostic plots (v2: targets + engineered features).
+visualize.py — Step 3 diagnostic plots (targets + engineered features).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources

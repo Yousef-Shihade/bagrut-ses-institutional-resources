@@ -1,5 +1,5 @@
 """
-run_step4.py — Step 4 orchestrator (v2: preprocessing, outliers, MICE robustness).
+run_step4.py — Step 4 orchestrator (preprocessing, outliers, MICE robustness).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -7,8 +7,8 @@ Authors: Yousef Shihade & Shada Esawi
 
 Flow:
     load Step-3 school-level table + derived columns
-    -> MICE robustness — 25 independent masking trials (NEW in v2)
-    -> Outlier detection: Isolation Forest + LOF (richer v2 feature space)
+    -> MICE robustness — 25 independent masking trials
+    -> Outlier detection: Isolation Forest + LOF
     -> Exploratory analysis: Q1 (resilience) + Q2 (overachievers) — unchanged
     -> save cleaned_modeling_ready.csv + all diagnostic plots
 
@@ -46,7 +46,7 @@ def main() -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
 
     print(_hr())
-    print("STEP 4 — PREPROCESSING, OUTLIERS & MICE ROBUSTNESS (v2)")
+    print("STEP 4 — PREPROCESSING, OUTLIERS & MICE ROBUSTNESS")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
@@ -87,7 +87,7 @@ def main() -> None:
     outlier_plot = out.plot_mapping(df, graphs)
 
     # ---------------- Exploratory questions --------------------------- #
-    print(f"\n[3/3] Exploratory questions (unchanged methodology from v1)")
+    print(f"\n[3/3] Exploratory questions")
     q1 = ex.question1_resilience(df, cfg)
     print(f"    Q1 — more resilient subject (smaller grade gap): {q1['more_resilient_grade']}")
     for subj, r in q1["subjects"].items():

@@ -1,5 +1,5 @@
 """
-run_step1.py — Step 1 orchestrator (v2: ingestion & standardisation, 3 datasets).
+run_step1.py — Step 1 orchestrator (ingestion & standardisation, 3 datasets).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -42,7 +42,7 @@ def main() -> None:
     graphs = resolve(cfg["paths"]["out_graphs"])
 
     print(_hr())
-    print("STEP 1 — INGESTION & STANDARDIZATION (v2: THREE DATASETS)")
+    print("STEP 1 — INGESTION & STANDARDIZATION (THREE DATASETS)")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
@@ -62,7 +62,7 @@ def main() -> None:
     print(f"    cluster present {ses['cluster'].notna().mean()*100:.1f}% | "
           f"'..' placeholders -> NaN")
 
-    print("\n[3] DATASET 3 — Ministry of Education budget  (NEW in v2)")
+    print("\n[3] DATASET 3 — Ministry of Education budget")
     print(f"    workbook: {ing['columns_in_workbook']} columns, {ing['rows_raw']:,} rows "
           f"(styles.xml colour error bypassed)")
     print(f"    totals rows dropped: {ing['totals_rows_dropped']} | "

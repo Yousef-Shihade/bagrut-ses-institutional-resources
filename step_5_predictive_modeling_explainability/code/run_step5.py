@@ -1,5 +1,5 @@
 """
-run_step5.py — Step 5 orchestrator (v2: modeling, ablation, Boruta, SHAP).
+run_step5.py — Step 5 orchestrator (modeling, ablation, Boruta, SHAP).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -70,7 +70,7 @@ def main() -> None:
     feats = cfg["features"]
 
     print(_hr())
-    print("STEP 5 — PREDICTIVE MODELING, ABLATION & EXPLAINABILITY (v2)")
+    print("STEP 5 — PREDICTIVE MODELING, ABLATION & EXPLAINABILITY")
     print(cfg["project"]["title"])
     print("Authors: " + " & ".join(cfg["project"]["authors"]))
     print(_hr())
@@ -193,7 +193,7 @@ def main() -> None:
         print(f"{t:32s}{'HGB (tuned)':24s}{tm['R2']:+8.3f}{tm['RMSE']:9.3f}{tm['MAE']:9.3f}")
 
     print("\n" + _hr())
-    print("ABLATION SUMMARY — SES-only (v1 baseline) vs SES+Budget (Boruta-selected)")
+    print("ABLATION SUMMARY — SES-only vs SES+Budget (Boruta-selected)")
     print(_hr())
     with pd.option_context("display.width", 130, "display.max_columns", None):
         print(ablation_df[["target", "n_rows", "R2_before", "R2_after", "dR2"]].to_string(index=False))

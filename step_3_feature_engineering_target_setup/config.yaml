@@ -1,13 +1,13 @@
 # =============================================================================
-# BagrutProject v2 — Step 3 Configuration (Feature Engineering & Target Setup)
+# BagrutProject — Step 3 Configuration (Feature Engineering & Target Setup)
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
 # Authors: Yousef Shihade & Shada Esawi
 #
 # Consumes Step 2's three-way-merged record-level table and re-grains it to
-# SCHOOL level (semel x year). Targets are Math + English only (as in v1) — the
-# NEW part is engineering ~15 numeric + 6 categorical predictors from the budget
-# dataset alongside the original CBS municipal features.
+# SCHOOL level (semel x year). Targets are Math + English only; the predictor
+# side engineers ~15 numeric + 6 categorical features from the budget dataset
+# alongside the CBS municipal features.
 # =============================================================================
 
 project:
@@ -27,7 +27,7 @@ paths:
 io:
   encoding: "utf-8-sig"
 
-# Modeling grain — one row per school per year (unchanged from v1).
+# Modeling grain — one row per school per year.
 grain: ["semel", "year"]
 
 subjects:

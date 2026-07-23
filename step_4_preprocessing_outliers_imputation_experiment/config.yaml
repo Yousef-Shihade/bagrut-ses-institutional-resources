@@ -1,17 +1,17 @@
 # =============================================================================
-# BagrutProject v2 — Step 4 Configuration
+# BagrutProject — Step 4 Configuration
 # Preprocessing, Outlier Detection & the Multi-Iteration MICE Robustness Experiment
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
 # Authors: Yousef Shihade & Shada Esawi
 #
-# v2 CHANGE: the masking experiment now repeats N_ITERATIONS times with
+# The masking experiment repeats N_ITERATIONS times with
 # different random seeds, reporting mean +/- std across runs instead of a
 # single R^2. Our review of the imputation literature showed that a single
 # masked run is not sufficient evidence of stability — the accepted practice
 # is to report a distribution over many independent draws. Outlier detection
-# and the exploratory questions are otherwise unchanged from v1, now operating
-# on the richer v2 feature space.
+# and the exploratory questions round out the step, both operating
+# on the full engineered feature space.
 # =============================================================================
 
 project:
@@ -38,16 +38,16 @@ targets:
   - "math_5unit_participation"
   - "english_5unit_participation"
 
-# --- MICE imputation robustness experiment (v2: multi-iteration) ----
+# --- MICE imputation robustness experiment (multi-iteration) --------
 imputation_experiment:
   # index_value (the CBS continuous socioeconomic score) is 100% complete on
   # cluster-present rows and strongly structured -> cleanly contrasts MICE vs a
-  # median baseline. Same target as v1 for direct before/after comparability.
+  # median baseline against a fully-observed column, so the truth is known.
   target_feature: "index_value"
   mask_fraction: 0.08          # within the required 5-10% band
   mice_max_iter: 15
   n_iterations: 25             # NEW: independent random-seed repeats for stability evidence
-  # Numeric predictors IterativeImputer (MICE) may use — expanded in v2 with the
+  # Numeric predictors IterativeImputer (MICE) may use — includes the
   # budget-derived features, so the demonstration reflects the richer dataset.
   predictors:
     - "cluster"
@@ -80,7 +80,7 @@ outliers:
     - "total_budget_per_student"     # NEW: institutional resourcing dimension
     - "avg_class_size"               # NEW: pedagogical resourcing dimension
 
-# --- Exploratory questions (unchanged from v1) ----------------------
+# --- Exploratory questions ------------------------------------------
 exploratory:
   resilience_low_cluster: 2
   resilience_high_cluster: 9

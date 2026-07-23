@@ -1,12 +1,14 @@
-# Step 2 — Three-Way Merge (v2)
+# Step 2 — Three-Way Merge
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shihade & Shada Esawi
 
-> **v2 change.** Two independent joins now feed **one** consolidated record-level
-> table in this step — Bagrut↔CBS (as in v1) **and** Bagrut↔Budget (new). Both
-> attach directly onto the raw 69,638-row Bagrut table, so the budget dataset is
-> part of the core pipeline from here on, not a Step 6 afterthought.
+> Two **independent joins** feed one consolidated record-level table:
+> Bagrut↔CBS on locality name, and Bagrut↔Budget on the school code. Both
+> attach directly onto the raw 69,638-row Bagrut table, so every downstream
+> stage sees all three sources at once. The two joins face genuinely different
+> problems — one is a hard Hebrew name-matching task, the other a clean key
+> merge — and are solved accordingly.
 
 ---
 
@@ -20,7 +22,7 @@ step_2_data_merging_integration/
 │   ├── io_load.py       # load the 3 Step-1 clean caches
 │   ├── crosswalk.py      # Join A: structural_key() + hand-verified name/code maps
 │   ├── matching.py       # Join A: 4-stage alignment (exact→structural→crosswalk→fuzzy)
-│   ├── budget_join.py     # Join B: exact semel key merge — NEW in v2
+│   ├── budget_join.py     # Join B: exact semel key merge
 │   ├── visualize.py       # 3 diagnostic plots
 │   └── run_step2.py       # orchestrator + verification summary
 ├── data/
@@ -39,11 +41,13 @@ Run: `python code/run_step2.py`.
 |---|---|---|
 | **Key** | normalised locality **name** | school code **`semel`** |
 | **Why not `semel`?** | `semel` is a *school* code in Bagrut but a *locality* code in CBS — **zero overlap** | `semel` is a *school* code in **both** — directly usable |
-| **Method** | 4-stage fuzzy match (ported unchanged from v1, proven 99.44%) | exact key merge, no fuzzy logic needed |
+| **Method** | 4-stage fuzzy match (99.44% yield) | exact key merge, no fuzzy logic needed |
 | **Difficulty** | hard — genuine Hebrew spelling/administrative variation | easy — same identifier system |
 
-Join A logic (`crosswalk.py`, `matching.py`) is **reused verbatim from v1** — it
-was already rigorously validated, so there was no reason to rebuild it.
+Join A's logic lives in `crosswalk.py` (hand-verified name/code maps) and
+`matching.py` (the 4-stage cascade). Each stage only sees cities the previous
+stage failed to resolve, so the cheap deterministic passes handle the bulk and
+fuzzy matching is reserved for the genuinely ambiguous remainder.
 
 ---
 
@@ -60,7 +64,7 @@ was already rigorously validated, so there was no reason to rebuild it.
 | **unmatched** | 392 | 0.56% |
 | **TOTAL MATCHED** | **69,246** | **99.44%** |
 
-Identical to v1 (same proven logic, same data) — 5 distinct cities remain
+Five distinct cities remain
 unmatched (youth villages / regional schools genuinely absent from the CBS
 extract).
 
@@ -91,7 +95,7 @@ are handled in Step 4.
 
 ## 4. Diagnostic plots
 
-**`match_yield_waterfall.png`** — Join A's stage-by-stage yield (reproduces v1's
+**`match_yield_waterfall.png`** — Join A's stage-by-stage yield (the
 99.44%).
 
 **`dual_join_success.png`** — Join A (99.44%) vs Join B (99.68%, records) side by
@@ -113,9 +117,9 @@ might hope for:
 - **Clusters 5–9** are **almost entirely Jewish**.
 
 So `sector` **tracks** the municipal cluster fairly strongly — it is not a clean
-independent axis like the budget *ratios* turned out to be in v1 (recall:
-`budget_per_student` had corr ≈ 0.03 with cluster). This is an honest, useful
-finding to carry forward:
+independent axis the way the numeric budget *ratios* are (Step 3 confirms those
+sit at |r| ≤ 0.09 with cluster). This is an honest, useful finding to carry
+forward:
 
 - We flag this **now** so Step 5's VIF / Boruta stage is not a surprise — some
   budget-file categoricals may show real association with `cluster` and need to
@@ -129,7 +133,7 @@ finding to carry forward:
 
 ## 6. Step 2 verification checklist
 
-- [x] Join A ported from v1 unchanged; reproduces 99.44% exactly.
+- [x] Join A: 4-stage alignment yields 99.44% of records matched.
 - [x] Join B (NEW): exact `semel` key merge, 98.59% schools / 99.68% records.
 - [x] Both joins are left joins — **no row explosion**, count stays at 69,638.
 - [x] 98.72% of rows carry a full profile from all three sources.

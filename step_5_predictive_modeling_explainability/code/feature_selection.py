@@ -1,20 +1,19 @@
 """
-feature_selection.py — collinearity (iterative VIF) + Boruta selection (v2).
+feature_selection.py — collinearity (iterative VIF) + Boruta selection.
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
 Authors: Yousef Shihade & Shada Esawi
 
 Two concerns are handled here:
-  * Collinearity in feature exploration: v1 checked one known
-    pair (cluster vs index_value, r=0.97) and dropped index_value by hand. v2's
-    candidate set is much larger (15 numeric features), so collinearity handling
-    is now an ITERATIVE procedure: compute VIF for all candidates, drop the
-    single worst offender, recompute, repeat until every remaining feature is
-    below the threshold. This is standard practice and scales to any candidate
-    count without requiring a human to spot every redundant pair by eye.
-  * Feature selection: Boruta (all-relevant RF wrapper) is unchanged
-    from v1 — it now runs on the full VIF-pruned SES+budget candidate set.
+  * Collinearity: with 15 numeric candidates, spotting redundant pairs by hand
+    does not scale, so collinearity handling is an ITERATIVE procedure: compute
+    VIF for all candidates, drop the single worst offender, recompute, repeat
+    until every remaining feature is below the threshold. Iteration matters
+    because dropping one feature can resolve another's inflation — a single-pass
+    cutoff would discard features that are only collinear via a third.
+  * Feature selection: Boruta (an all-relevant random-forest wrapper) runs on
+    the VIF-pruned SES+budget candidate set, once per target.
 """
 from __future__ import annotations
 

@@ -1,12 +1,14 @@
-# Step 1 — Ingestion & Standardization (v2: three datasets)
+# Step 1 — Ingestion & Standardization
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shihade & Shada Esawi
 
-> **v2 change.** The Ministry-of-Education **budget dataset is ingested here, as a
-> first-class third source** — not bolted on at the end as in v1. This is what
-> lifts the project out of a 4-feature municipal-only design and into a
-> school-level feature space.
+> This step ingests **all three sources** — the Bagrut exam records, the CBS
+> municipal socioeconomic index, and the Ministry-of-Education budget report —
+> each of which arrives with its own encoding, header and Hebrew-text problems.
+> Treating the budget file as a **first-class third source from the outset** is
+> what lifts the analysis from a municipality-only design into a school-level
+> feature space.
 
 ---
 
@@ -87,7 +89,7 @@ design, where every predictor was a municipality-level aggregate:
 
 | Attribute | Coverage | Distinct | Note |
 |---|--:|--:|---|
-| `district` | **100 %** | 6 | v1 documented district as **absent** from CBS — the budget file supplies it |
+| `district` | **100 %** | 6 | absent from the CBS extract entirely — only the budget file supplies it |
 | `sector` | **100 %** | 5 | Jewish / Arab / Bedouin / Druze / Circassian |
 | `supervision` | **100 %** | 3 | State / State-religious / Haredi |
 | `legal_status` | **100 %** | 4 | Official / Recognised / Culturally-unique / Exempt |
@@ -97,7 +99,7 @@ design, where every predictor was a municipality-level aggregate:
 
 `nurture_quintile` matters conceptually: it is a **school-level** socioeconomic
 measure, so the project can now contrast *school* disadvantage against *municipal*
-disadvantage — the core of the v2 research question.
+disadvantage — the core of this project's research question.
 
 ### Columns excluded up front (verified all-zero, documented not hidden)
 - `תקציב גפ"ן` (Gefen budget) — grand total = 0 across the entire workbook

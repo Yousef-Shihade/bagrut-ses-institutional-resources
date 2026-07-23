@@ -1,5 +1,5 @@
 """
-io_load.py — Resilient ingestion of the THREE raw datasets (v2 Step 1).
+io_load.py — Resilient ingestion of the THREE raw datasets (Step 1).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -12,7 +12,7 @@ Responsibilities
 * Dataset 2 — CBS socioeconomic index XLSX: the real header sits on row index 10;
   Hebrew headers are renamed to canonical English names and the ``..`` "unranked"
   placeholders are coerced to NaN.
-* Dataset 3 — Ministry of Education budget XLSX (**new in v2**): the workbook
+* Dataset 3 — Ministry of Education budget XLSX : the workbook
   ships a malformed ``styles.xml`` (non-aRGB theme colours) which makes a vanilla
   ``openpyxl.load_workbook`` raise ``ValueError: Colors must be aRGB hex values``.
   We monkeypatch openpyxl's ``RGB`` descriptor with a lenient validator *before*
@@ -111,7 +111,7 @@ def load_ses(cfg: dict[str, Any] | None = None) -> pd.DataFrame:
 
 
 # --------------------------------------------------------------------------- #
-# Dataset 3 — Ministry of Education budget (NEW in v2)                         #
+# Dataset 3 — Ministry of Education budget                                      #
 # --------------------------------------------------------------------------- #
 def _patch_openpyxl_colors() -> None:
     """Make openpyxl tolerate the budget workbook's invalid theme colours.

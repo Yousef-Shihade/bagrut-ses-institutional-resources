@@ -1,5 +1,5 @@
 """
-visualize.py — Step 1 diagnostic plots (v2, three datasets).
+visualize.py — Step 1 diagnostic plots (three datasets).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -74,7 +74,7 @@ def plot_three_dataset_overview(bag: pd.DataFrame, ses: pd.DataFrame,
         ax.text(b.get_x() + b.get_width() / 2, c, f"{c:,}", ha="center",
                 va="bottom", fontsize=11, fontweight="bold")
 
-    # (c) feature-space contribution (the "too few features" fix)
+    # (c) feature-space contribution from each source
     ax = axes[2]
     contrib = {"Bagrut\n(targets)": 4, "CBS\n(municipal)": 4, "Budget\n(school-level)": 14}
     bars = ax.bar(list(contrib), list(contrib.values()), color=[NAVY, TEAL, GOLD])

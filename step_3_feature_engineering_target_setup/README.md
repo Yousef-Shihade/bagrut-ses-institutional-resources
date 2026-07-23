@@ -1,14 +1,13 @@
-# Step 3 — Feature Engineering & Target Setup (v2)
+# Step 3 — Feature Engineering & Target Setup
 
 **Project:** Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
 **Authors:** Yousef Shihade & Shada Esawi
 
-> **v2 change.** Targets are still **Math + English only** (as in v1 — see the
-> Step 2 discussion for why we kept scope disciplined rather than expanding
-> subjects). What's new is the **predictor side**: alongside the municipal CBS
-> features, this step engineers **8 per-student budget ratios** and carries **5
-> school-level categoricals** — taking the candidate feature count from v1's
-> **4 → 23**.
+> This step re-grains the merged record-level table to **one row per school per
+> year**, derives the **4 modelling targets**, and builds the predictor space:
+> the municipal CBS features plus **8 per-student budget ratios** and **5
+> school-level categoricals** engineered from the Ministry data — **23 candidate
+> features** in total.
 
 ---
 
@@ -20,7 +19,7 @@ step_3_feature_engineering_target_setup/
 ├── config.yaml                # grain, subject defs, feature/ratio definitions
 ├── code/
 │   ├── io_load.py
-│   ├── feature_engineering.py # _aggregate_subject (v1, unchanged) + NEW ratio engineering
+│   ├── feature_engineering.py # subject aggregation + budget ratio engineering
 │   ├── visualize.py           # 4 plots
 │   └── run_step3.py           # orchestrator + verification summary
 ├── data/
@@ -32,22 +31,19 @@ Run: `python code/run_step3.py`.
 
 ---
 
-## 2. What's reused vs. what's new
+## 2. Design decisions
 
-| Component | Status |
+| Decision | Rationale |
 |---|---|
-| `_aggregate_subject()` (targets) | **unchanged from v1** — dataset-agnostic, already validated |
-| Math + English filter, units 3/4/5 for grade, 5-unit for participation | **unchanged from v1** |
-| Grain = `semel × year` | **unchanged from v1** |
-| CBS municipal features (`cluster`, `index_value`, `population`, `locality_form`) | **unchanged from v1** |
-| **8 engineered budget ratios** (per-student) | **NEW** |
-| **5 school-level categoricals** (district, sector, supervision, legal_status, education_stage) | **NEW** |
-| `nurture_quintile`, `avg_class_size`, `special_ed_share`, `log_school_size` | **NEW** |
-| `log_population` | moved here from v1's Step 4 (a deterministic transform belongs in feature engineering, not preprocessing) |
+| **Targets: Math + English only** | Deliberate scope discipline — these two subjects are taken near-universally, so their grades and 5-unit rates are comparable across schools. Niche electives would introduce heavy selection bias (see the Step 2 discussion). |
+| **Grain: `semel × year`** | The research question is about *schools*, not individual exam sittings. One row per school-year keeps every year's observation while matching the unit of analysis. |
+| **Grade targets use units 3/4/5; participation uses 5-unit** | Grades average over all academic-track sittings; participation isolates the advanced track specifically. |
+| **`log_population` computed here, not in preprocessing** | A deterministic transform of a raw feature is feature engineering, not data cleaning — keeping it here means the preprocessing step handles only imputation and outliers. |
+| **Targets are never imputed** | Missing grades are privacy suppression of small cohorts (Step 1), so imputing them would fabricate the outcome. Aggregation runs over observed cells only. |
 
 ---
 
-## 3. The 4 targets — unchanged, verified identical to v1
+## 3. The 4 targets
 
 | Target | Non-null | Mean |
 |---|--:|--:|
@@ -56,13 +52,14 @@ Run: `python code/run_step3.py`.
 | `math_5unit_participation` | 3,668 (98.3%) | 0.087 |
 | `english_5unit_participation` | 3,688 (98.8%) | 0.325 |
 
-Identical row count (**3,731 school-years, 1,022 schools**) and identical target
-statistics to v1 — confirming the ported aggregation logic behaves correctly on
-the new three-way-merged input.
+**3,731 school-years across 1,022 schools.** The two participation targets are
+near-complete (98%+) because they are computable whenever a school had any
+academic-track takers; the grade targets carry the ~12% suppression documented
+in Step 1.
 
 ---
 
-## 4. The new feature space (23 conceptual candidates, up from v1's 4)
+## 4. The candidate feature space (23 features)
 
 ![feature inventory](graphs/feature_inventory.png)
 
@@ -76,11 +73,11 @@ the new three-way-merged input.
 | Temporal | `year` | 1 |
 | **Total** | | **23** |
 
-† `index_value` is carried through for the VIF demonstration in Step 5, then
-dropped (collinear with `cluster`, as established in v1).
+† `index_value` is carried through so Step 5's VIF analysis can quantify its
+redundancy with `cluster` (r ≈ 0.97), after which it is dropped.
 
-All 8 ratios use the guard pattern proven in v1's Step 6: `numerator/denominator`
-with `students_regular ≤ 0` and `±inf` forced to `NaN` (never silently propagated).
+All 8 ratios use the same guard pattern — `numerator/denominator` with
+`students_regular ≤ 0` and `±inf` forced to `NaN`, never silently propagated.
 Coverage: **98.4%** across every ratio (3,672/3,731 school-years).
 
 ---
@@ -100,11 +97,10 @@ carry real signal — but flag it here so it is never mis-read as a plain cost.
 ![correlation](graphs/budget_ratio_correlation.png)
 
 Every engineered budget ratio correlates **near-zero with `cluster`** (all
-|r| ≤ 0.09). This **replicates v1's key finding** (`budget_per_student` had
-r ≈ 0.03 with cluster) across the *entire* new ratio set — confirming these are
-genuinely new, independent information rather than a disguised proxy for
-municipal wealth. (Contrast with `index_value`, r ≈ 0.97 with cluster —
-redundant, and dropped in Step 5.)
+|r| ≤ 0.09) — confirming these carry genuinely new, independent information
+rather than acting as a disguised proxy for municipal wealth. This is the
+central justification for adding the Ministry dataset at all. (Contrast with
+`index_value`, r ≈ 0.97 with cluster — redundant, and dropped in Step 5.)
 
 Note: this is about the **numeric ratios**. Step 2 already showed the
 **categorical** `sector` *is* associated with cluster (Arab/Bedouin/Druze schools
@@ -119,7 +115,7 @@ both deserve attention in Step 5's collinearity analysis.
 |---|---|
 | `target_distributions.png` | histograms of all 4 targets |
 | `cluster_vs_targets.png` | Math/English avg grade by cluster (SES gradient) |
-| `feature_inventory.png` | candidate feature count by source (4 → 23) |
+| `feature_inventory.png` | candidate feature count by source (23 total) |
 | `budget_ratio_correlation.png` | budget ratios × cluster correlation heatmap |
 
 ---
@@ -127,14 +123,14 @@ both deserve attention in Step 5's collinearity analysis.
 ## 8. Step 3 verification checklist
 
 - [x] Filtered to Math + English only (24.4% of subject-cells); units 3/4/5 for
-      grade, 5-unit for participation — unchanged from v1.
-- [x] Re-grained to `semel × year`: 3,731 rows, 1,022 schools — identical to v1.
-- [x] Targets never imputed; identical statistics to v1 (aggregation validated).
+      grade, 5-unit for participation.
+- [x] Re-grained to `semel × year`: 3,731 rows, 1,022 schools.
+- [x] Targets computed from observed cells only — never imputed.
 - [x] 8 budget ratios engineered with robust div-by-zero/inf guards; 98.4% coverage.
 - [x] 5 school-level categoricals + `nurture_quintile` + `avg_class_size` carried forward.
 - [x] `transport_per_student` sign anomaly investigated and documented, not hidden.
 - [x] Budget ratios confirmed near-orthogonal to cluster (|r| ≤ 0.09) — genuine
-      new information, replicating v1's key finding across the full ratio set.
+      new information, verified across the full ratio set.
 - [x] 4/4 plots saved.
 - [x] `school_level_features_targets.csv` (3,731 × 45) written.
 

@@ -9,8 +9,8 @@ Transforms the Step 2 three-way-merged record table into a SCHOOL-level
 (semel x year) table with:
 
   * 4 targets — Math/English x {takers-weighted avg grade, 5-unit participation}
-    (``_aggregate_subject`` is unchanged from v1: it is dataset-agnostic and was
-    already validated).
+    (``_aggregate_subject`` is dataset-agnostic: it depends only on the exam
+    columns, not on which sources were merged upstream).
 
   * Municipal predictors (CBS) — cluster, index_value, population, locality_form.
 
@@ -34,8 +34,8 @@ import pandas as pd
 
 
 # --------------------------------------------------------------------------- #
-# Targets — unchanged from v1 (dataset-agnostic, already validated at 99.44%   #
-# merge quality; only the input table's provenance changed).                   #
+# Targets — dataset-agnostic aggregation: depends only on the exam columns,    #
+# never on which sources were merged upstream.                                 #
 # --------------------------------------------------------------------------- #
 def _aggregate_subject(
     df: pd.DataFrame,
