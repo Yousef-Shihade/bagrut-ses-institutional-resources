@@ -1,5 +1,5 @@
 """
-outliers.py — Task B: Isolation Forest + Local Outlier Factor.
+outliers.py — Outlier detection: Isolation Forest + Local Outlier Factor.
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -107,7 +107,7 @@ def plot_mapping(df: pd.DataFrame, out_dir: Path) -> Path:
                    c=palette[cat], alpha=(0.35 if cat == "Clean" else 0.9),
                    edgecolor=("none" if cat == "Clean" else "black"), linewidth=0.4,
                    label=f"{cat} (n={len(sub)})", zorder=(1 if cat == "Clean" else 3))
-    ax.set_title("Task B — Outlier Mapping: Isolation Forest vs LOF\n"
+    ax.set_title("Outlier Mapping: Isolation Forest vs LOF\n"
                  "(school-year records in SES-vs-grade space)")
     ax.set_xlabel("CBS socioeconomic index value (higher = wealthier)")
     ax.set_ylabel("Combined (Math+English) weighted avg grade")

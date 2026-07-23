@@ -1,5 +1,5 @@
 """
-exploratory.py — Task C: baseline answers to the two core research questions.
+exploratory.py — Exploratory analysis: baseline answers to the two core research questions.
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources

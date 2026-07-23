@@ -7,9 +7,9 @@ Authors: Yousef Shihade & Shada Esawi
 
 Flow:
     load Step-3 school-level table + derived columns
-    -> Task A: MICE robustness — 25 independent masking trials (NEW in v2)
-    -> Task B: Isolation Forest + LOF outlier detection (richer v2 feature space)
-    -> Task C: exploratory Q1 (resilience) + Q2 (overachievers) — unchanged
+    -> MICE robustness — 25 independent masking trials (NEW in v2)
+    -> Outlier detection: Isolation Forest + LOF (richer v2 feature space)
+    -> Exploratory analysis: Q1 (resilience) + Q2 (overachievers) — unchanged
     -> save cleaned_modeling_ready.csv + all diagnostic plots
 
 Usage:
@@ -54,9 +54,9 @@ def main() -> None:
     df = load_school_level(cfg)
     print(f"\n[LOAD] school-level table: {df.shape}")
 
-    # ---------------- Task A: MICE robustness (multi-iteration, NEW) -------- #
+    # ---------------- MICE robustness (multi-iteration, NEW) -------- #
     ie = cfg["imputation_experiment"]
-    print(f"\n[TASK A] MICE robustness — {ie['n_iterations']} independent masking trials")
+    print(f"\n[1/3] MICE robustness — {ie['n_iterations']} independent masking trials")
     print(f"    target feature: {ie['target_feature']}  |  mask fraction: {ie['mask_fraction']}")
     print(f"    predictors ({len(ie['predictors'])}): {ie['predictors']}")
 
@@ -76,9 +76,9 @@ def main() -> None:
     robustness_plot = imp.plot_robustness(mice_result, graphs)
     print(f"    saved per-run detail: {Path(cfg['paths']['mice_runs_out']).name}")
 
-    # ---------------- Task B: outlier detection ------------------------------ #
+    # ---------------- Outlier detection ------------------------------ #
     oc = cfg["outliers"]
-    print(f"\n[TASK B] Outlier detection — Isolation Forest + LOF")
+    print(f"\n[2/3] Outlier detection — Isolation Forest + LOF")
     print(f"    feature space ({len(oc['features'])}): {oc['features']}")
     df, osumm = out.detect(df, cfg)
     print(f"    evaluated: {osumm['n_evaluated']:,} complete-case rows")
@@ -86,8 +86,8 @@ def main() -> None:
     print(f"    consensus (both): {osumm['overlap_both']}  |  Jaccard: {osumm['jaccard']:.3f}")
     outlier_plot = out.plot_mapping(df, graphs)
 
-    # ---------------- Task C: exploratory questions --------------------------- #
-    print(f"\n[TASK C] Exploratory questions (unchanged methodology from v1)")
+    # ---------------- Exploratory questions --------------------------- #
+    print(f"\n[3/3] Exploratory questions (unchanged methodology from v1)")
     q1 = ex.question1_resilience(df, cfg)
     print(f"    Q1 — more resilient subject (smaller grade gap): {q1['more_resilient_grade']}")
     for subj, r in q1["subjects"].items():

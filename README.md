@@ -12,7 +12,7 @@
 ![Pipeline](https://img.shields.io/badge/pipeline-5%20stages-success.svg)
 ![Status](https://img.shields.io/badge/status-complete-brightgreen.svg)
 
-**Authors:** Yousef Shihade & Shada Esawi · *Data Science Lab — Final Project*
+**Authors:** Yousef Shihade & Shada Esawi · *Data Science Lab — Final Project, 2026*
 
 ---
 
@@ -88,7 +88,7 @@ cluster, Math's performance gap is smaller than English's on both grade
 vs 0.367). Separately, **87 of 460 (18.9%) low-SES schools** match or beat the
 elite-cluster median grade, with significantly higher advanced-track
 participation (p < 0.0001 for both subjects). Full detail:
-[Step 4 README, Task C](step_4_preprocessing_outliers_imputation_experiment/README.md#4-task-c--exploratory-questions-unchanged-from-v1).
+[Step 4 README](step_4_preprocessing_outliers_imputation_experiment/README.md#4-exploratory-questions-unchanged-from-v1).
 
 **Secondary B — Per-student budget ratios and the Ministry's own school-level
 disadvantage ranking, independent of municipal wealth.** Five budget ratios

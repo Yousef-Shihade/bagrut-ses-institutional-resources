@@ -5,13 +5,13 @@
 #          School-Level Institutional Resources
 # Authors: Yousef Shihade & Shada Esawi
 #
-# v2 CHANGE: the MICE experiment (Task A) now repeats the masking experiment
-# N_ITERATIONS times with different random seeds, reporting mean +/- std across
-# runs instead of a single R^2. Our review of the imputation literature showed
-# that a single masked run is not sufficient evidence of stability — the
-# accepted practice is to report a distribution over many independent draws.
-# Outlier detection (Task B) and the exploratory questions (Task C) are
-# otherwise unchanged from v1, now operating on the richer v2 feature space.
+# v2 CHANGE: the masking experiment now repeats N_ITERATIONS times with
+# different random seeds, reporting mean +/- std across runs instead of a
+# single R^2. Our review of the imputation literature showed that a single
+# masked run is not sufficient evidence of stability — the accepted practice
+# is to report a distribution over many independent draws. Outlier detection
+# and the exploratory questions are otherwise unchanged from v1, now operating
+# on the richer v2 feature space.
 # =============================================================================
 
 project:
@@ -38,7 +38,7 @@ targets:
   - "math_5unit_participation"
   - "english_5unit_participation"
 
-# --- Task A: MICE imputation robustness experiment (v2: multi-iteration) ----
+# --- MICE imputation robustness experiment (v2: multi-iteration) ----
 imputation_experiment:
   # index_value (the CBS continuous socioeconomic score) is 100% complete on
   # cluster-present rows and strongly structured -> cleanly contrasts MICE vs a
@@ -65,7 +65,7 @@ imputation_experiment:
     - "nurture_quintile"
     - "special_ed_share"
 
-# --- Task B: Outlier detection (unchanged method, richer feature space) -----
+# --- Outlier detection (unchanged method, richer feature space) -----
 outliers:
   contamination: 0.05
   lof_neighbors: 20
@@ -80,7 +80,7 @@ outliers:
     - "total_budget_per_student"     # NEW: institutional resourcing dimension
     - "avg_class_size"               # NEW: pedagogical resourcing dimension
 
-# --- Task C: exploratory questions (unchanged from v1) ----------------------
+# --- Exploratory questions (unchanged from v1) ----------------------
 exploratory:
   resilience_low_cluster: 2
   resilience_high_cluster: 9

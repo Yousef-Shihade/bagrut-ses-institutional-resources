@@ -6,10 +6,11 @@
 > **v2 change.** After reviewing the imputation literature and published
 > evaluations of MICE, we concluded that a *single* masked-imputation run is not
 > methodologically sufficient evidence of stability — one draw cannot separate a
-> genuine advantage from a favourable random mask. Task A now repeats the MICE
-> experiment **25 times** with independent random seeds/masks and reports the
-> full distribution (mean ± std, min/max) rather than one number. Tasks B and C
-> reuse v1's proven methodology, now operating on the richer v2 feature space.
+> genuine advantage from a favourable random mask. The experiment now runs
+> **25 times** with independent random seeds/masks and reports the full
+> distribution (mean ± std, min/max) rather than one number. Outlier detection
+> and the exploratory analysis reuse v1's proven methodology, now operating on
+> the richer v2 feature space.
 
 ---
 
@@ -35,7 +36,7 @@ Run: `python code/run_step4.py`.
 
 ---
 
-## 2. Task A — MICE robustness (v2: 25 independent trials)
+## 2. MICE robustness (v2: 25 independent trials)
 
 **Why 25 runs, not 1.** One masked draw could be lucky or unlucky. Repeating with
 25 different random seeds (same 8% mask fraction, same predictor set, same
@@ -66,7 +67,7 @@ random mask.
 
 ---
 
-## 3. Task B — Outlier detection (unchanged method, richer feature space)
+## 3. Outlier detection (unchanged method, richer feature space)
 
 Same two complementary detectors as v1 — **Isolation Forest** (global anomalies)
 and **Local Outlier Factor** (local-density anomalies) — now run on a **9-feature
@@ -88,7 +89,7 @@ fully auditable.
 
 ---
 
-## 4. Task C — Exploratory questions (unchanged from v1)
+## 4. Exploratory questions (unchanged from v1)
 
 Both questions are **SES-only by design** (they test the original research
 question's resilience/overachiever findings) and depend only on `cluster` and the

@@ -166,7 +166,7 @@ def plot_budget_school_profile(bud: pd.DataFrame, cfg: dict[str, Any],
 
     Hebrew category labels are mapped to English via ``cfg['display_labels']``:
     matplotlib renders RTL Hebrew reversed ("יהודי" -> "ידוהי"), which would make
-    every tick label unreadable in the report/deck.
+    every tick label unreadable at figure scale.
     """
     labels = cfg.get("display_labels", {})
     panels = [("sector", "Sector"), ("supervision", "Supervision"),

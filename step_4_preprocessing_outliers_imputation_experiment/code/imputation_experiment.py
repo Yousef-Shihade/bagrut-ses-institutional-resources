@@ -1,5 +1,5 @@
 """
-imputation_experiment.py — Task A: MICE robustness (v2: multi-iteration).
+imputation_experiment.py — MICE robustness (v2: multi-iteration).
 
 Project: Predicting Bagrut Success from Municipal Socioeconomics and
          School-Level Institutional Resources
@@ -145,7 +145,7 @@ def plot_robustness(result: dict[str, Any], out_dir: Path) -> Path:
     ax2.set_xlabel("run index"); ax2.set_ylabel("R²")
     ax2.legend(fontsize=11)
 
-    fig.suptitle(f"Task A — MICE Robustness: {summ['n_iterations']} independent masking trials "
+    fig.suptitle(f"MICE Robustness: {summ['n_iterations']} independent masking trials "
                 f"({int(summ['n_masked'])} cells masked each run, 8%)", fontsize=15)
     fig.tight_layout(rect=(0, 0, 1, 0.93))
     path = out_dir / "mice_robustness_multi_iteration.png"
