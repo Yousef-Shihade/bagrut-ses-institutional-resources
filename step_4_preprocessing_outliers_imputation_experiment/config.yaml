@@ -1,5 +1,5 @@
 # =============================================================================
-# BagrutProject — Step 4 Configuration
+# Predicting Bagrut Success — Step 4 Configuration
 # Preprocessing, Outlier Detection & the Multi-Iteration MICE Robustness Experiment
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
@@ -15,7 +15,7 @@
 # =============================================================================
 
 project:
-  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources"
   authors:
     - "Yousef Shihade"
     - "Shada Esawi"

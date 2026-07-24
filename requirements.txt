@@ -1,5 +1,5 @@
 # =============================================================================
-# BagrutProject — Python dependencies
+# Predicting Bagrut Success — Python dependencies
 # Predicting Bagrut Success from Municipal Socioeconomics and School-Level
 # Institutional Resources
 # Authors: Yousef Shihade & Shada Esawi

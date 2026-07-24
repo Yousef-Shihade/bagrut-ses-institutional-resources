@@ -1,4 +1,5 @@
-# 📊 Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources
+# 📊 Predicting Bagrut Success
+### Municipal Socioeconomics & School-Level Institutional Resources
 
 > An end-to-end, empirical data-science pipeline testing whether **municipal
 > socioeconomic status and school-level institutional resources — together —
@@ -45,7 +46,7 @@ The current `main` branch reflects only this integrated, three-dataset
 version of the project — it is the version described throughout this
 README and the one intended for evaluation. The original two-dataset
 pipeline is preserved in full, exactly as it was built and run, on the
-[`archive/v1-two-dataset-pipeline`](https://github.com/Yousef-Shihade/bagrut-ses-institutional-resources/tree/archive/v1-two-dataset-pipeline)
+[`archive/v1-two-dataset-pipeline`](https://github.com/Yousef-Shihade/predicting-bagrut-success/tree/archive/v1-two-dataset-pipeline)
 branch, for anyone who wants to see the earlier analysis or compare the
 two approaches directly.
 
@@ -149,7 +150,7 @@ and graphs, and consumes the previous stage's output.
 ### Repository layout
 
 ```
-BagrutProject/
+predicting-bagrut-success/
 ├── README.md  ·  LICENSE  ·  requirements.txt
 ├── datasets/                                  # raw inputs (git-ignored)
 ├── step_1_ingestion_standardization/

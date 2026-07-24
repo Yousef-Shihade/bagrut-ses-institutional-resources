@@ -1,5 +1,5 @@
 # =============================================================================
-# BagrutProject — Step 1 Configuration
+# Predicting Bagrut Success — Step 1 Configuration
 # Ingestion & Standardization of THREE datasets
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
@@ -14,7 +14,7 @@
 # =============================================================================
 
 project:
-  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources"
   authors:
     - "Yousef Shihade"
     - "Shada Esawi"

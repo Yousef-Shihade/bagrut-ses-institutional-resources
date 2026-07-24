@@ -1,5 +1,5 @@
 # =============================================================================
-# BagrutProject — Step 5 Configuration
+# Predicting Bagrut Success — Step 5 Configuration
 # Predictive Modeling, Feature Selection & Explainability
 # Project: Predicting Bagrut Success from Municipal Socioeconomics and
 #          School-Level Institutional Resources
@@ -14,7 +14,7 @@
 # =============================================================================
 
 project:
-  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Resources"
+  title: "Predicting Bagrut Success from Municipal Socioeconomics and School-Level Institutional Resources"
   authors:
     - "Yousef Shihade"
     - "Shada Esawi"
